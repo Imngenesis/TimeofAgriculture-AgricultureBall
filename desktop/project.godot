@@ -3,7 +3,7 @@ config_version=5
 [application]
 config/name="稻生江畔"
 config/description="长江河谷的四时代农业生存战役"
-config/version="0.1.0"
+config/version="0.2.0"
 config/icon="res://art/riverbend.png"
 boot_splash/image="res://art/riverbend.png"
 boot_splash/bg_color=Color(0.08,0.12,0.10,1)

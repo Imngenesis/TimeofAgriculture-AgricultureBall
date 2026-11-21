@@ -74,188 +74,249 @@ func key(code: Key):
 		get_viewport().push_input(event,true)
 	await frames()
 
+var route_num=0
+
 func ticks(count: int):
 	for i in count:
 		if failed or game.paused: return
+		var prior_turn=sim.s.turn
 		game.sim_step()
+		if sim.s.turn!=prior_turn:
+			var b=sim.s.last_ledger
+			var spent=b.build+b.maintenance+b.advance+b.eat+b.loss+b.sow+b.spoil
+			if not check(b.opening+b.gather+b.crop+b.refund-spent==b.ending,"seasonal food ledger reconciles"): return
+			if not check(sim.s.pop==sim.s.workers.size(),"population matches available worker records"): return
+		while sim.s.pending in ["birds","weeds","rain","blight"] and not failed:
+			var event=sim.s.pending
+			var which=route_num if event=="rain" else 0
+			if sim.s.food<sim.response_cost(event,which): which=1
+			if not check(sim.s.cause.has(event),"warning records its cause"): return
+			await tap("decision",which)
+			if sim.s.pending=="":
+				await key(KEY_SPACE)
 		if (i+1)%20==0: await frames(1)
-
-func wait_event(event: String):
-	for n in 28:
-		if sim.s.pending!="": break
-		await ticks(40)
-	check(sim.s.pending==event,"expected crisis "+event+" received "+sim.s.pending)
-
-func wait_era(era: int):
-	for n in 30:
-		if sim.s.era==era or failed: break
-		if not check(sim.s.pending=="" and sim.s.outcome=="","blocked reaching era "+str(era)): return
-		await ticks(S.SEASON_TIME-sim.s.clock)
-	check(sim.s.era==era,"entered era "+str(era)+" date "+sim.date()+" goals "+str(sim.goals()))
 
 func choose_cell(id: int):
 	if failed: return
-	await frames(2)
+	game.world.focus(id)
+	await frames(18)
 	var position=game.world.camera.unproject_position(V.v3(V.center(id)))
 	if not check(game.world.pick(position)==id,"map picking "+str(id)): return
 	click(position)
 	await frames(2)
 
-func build(type: String,id: int):
+func build(kind: String,id: int):
 	await tap("panel","build")
-	await tap("tool",type)
+	await tap("tool",kind)
 	await choose_cell(id)
-	check(game.world.build_tool=="","placed "+type+" at "+str(id)+" / "+game.hud.toast)
+	check(game.world.build_tool=="" and game.world.selected==id,"placed "+kind+" at "+str(id)+" "+game.hud.toast)
+
+func visit(id: int):
+	await tap("panel","crew")
+	await tap("jump",id)
+
+func finish_site(id: int):
+	for i in 85:
+		if failed or sim.s.cells[id].project=="": break
+		await ticks(1)
+	check(sim.s.cells[id].project=="","completed site "+str(id)+" state "+str([sim.s.cells[id].project,sim.assigned("t"+str(id)),sim.s.pending]))
+
+func bank_notes(required: int=0):
+	if failed: return
+	var ac=sim.academy_id()
+	for i in 160:
+		if sim.s.science+sim.s.cells[ac].notes>=required or failed: break
+		await ticks(1)
+	if not check(sim.s.science+sim.s.cells[ac].notes>=required,"academy produced requested knowledge"): return
+	if sim.s.cells[ac].notes>0:
+		await tap("panel","study");await tap("academy")
+		var before=sim.s.science
+		var local=sim.s.cells[ac].notes
+		await tap("collect",ac)
+		check(sim.s.science==before+local and sim.s.cells[ac].notes==0,"collection transfers points exactly once")
 
 func learn(id: String):
-	await tap("panel","study")
-	await tap("research",id)
-	await tap("closepanel")
-	await ticks(8)
-	check(sim.s.tech.has(id),"researched "+id)
+	if failed: return
+	await bank_notes(S.TECH[id][2])
+	await tap("panel","study");await tap("research",id);await tap("closepanel")
+	for i in 12:
+		if sim.s.tech.has(id) or failed: break
+		await ticks(1)
+	check(sim.s.tech.has(id),"staff completed research "+id)
+
+func wait_ready():
+	for n in 16:
+		if failed or sim.advance_reason()=="": return
+		if not check(sim.s.pending=="" and sim.s.outcome=="","waiting for prerequisites "+str(sim.s.pending)): return
+		if sim.s.era==2 and sim.mean_soil()<58:
+			for id in sim.farms():
+				var c=sim.s.cells[id]
+				if c.soil<64 and c.compost!=sim.s.turn and S.Town.working(c) and sim.s.food>=2:
+					await visit(id);await tap("field",[id,"compost"])
+			if sim.advance_reason()=="": return
+		await ticks(S.SEASON_TIME-sim.s.clock)
+	check(sim.advance_reason()=="","stage prerequisites "+str([sim.s.era,sim.advance_reason(),sim.s.food,sim.s.seed,sim.s.rain,sim.mean_soil()]))
+
+func pay_to_advance(era: int):
+	if failed: return
+	await wait_ready()
+	if not check(sim.s.era==era and sim.s.outcome=="","stage stays under player control"): return
+	await tap("panel","era");await tap("review_era")
+	if era==0: await capture("07-era")
+	var stock=sim.s.food
+	var seeds=sim.s.seed
+	await tap("back")
+	if not check(sim.s.food==stock and sim.s.era==era,"cancel leaves stocks and era intact"): return
+	await tap("review_era");await tap("advance",era)
+	if not check(sim.s.food==stock-S.Town.ERA_FOOD[era] and sim.s.seed==seeds,"era %d payment: food %d to %d, seeds %d to %d, current era %d, dialog %s" % [era,stock,sim.s.food,seeds,sim.s.seed,sim.s.era,game.dialog_key]): return
+	if era<3:
+		check(sim.s.era==era+1 and sim.s.pending=="","new era does not dispatch a disaster")
+		var checkpoint=game.saves.read("chapter")
+		check(checkpoint.era==sim.s.era and checkpoint.food==sim.s.food,"chapter checkpoint contains paid inventory")
+		check(sim.advance(era)!="" and sim.s.food==stock-S.Town.ERA_FOOD[era],"stale transition cannot debit twice")
+	else: check(sim.s.outcome=="won","player confirmed modern harvest")
 
 func first_seasons():
 	await tap("new")
 	if game.dialog_key=="restart": await tap("confirmed_new")
-	if not check(game.playing and game.world.selected==S.WILD[0],"started game"): return
-	await tap("assign",["t"+str(S.WILD[0]),1])
-	await tap("assign",["t"+str(S.WILD[0]),1])
-	await tap("assign",["t"+str(S.WILD[0]),1])
-	check(sim.assigned("t"+str(S.WILD[0]),true)==0,"assigned workers first travel to gathering site")
+	if not check(game.playing and sim.s.science==0 and game.world.selected==S.WILD[0],"new camp starts with zero technology points"): return
+	for i in 3: await tap("assign",["t"+str(S.WILD[0]),1])
+	check(sim.assigned("t"+str(S.WILD[0]),true)==0,"workers must travel before working")
 	await tap("assign",["t"+str(S.WILD[0]),-1])
-	check(sim.free_workers()==8,"removed worker returns to the available pool")
-	await tap("assign",["t"+str(S.WILD[0]),1])
+	check(sim.free_workers()==8,"unassigned worker becomes available")
+	await visit(S.WILD[1])
+	for i in 2: await tap("assign",["t"+str(S.WILD[1]),1])
 	await tap("panel","crew")
 	for i in 3: await tap("reserve",false)
 	await tap("closepanel")
+	var food_before=sim.s.food
+	var free_before=sim.free_workers()
+	await build("house",46)
+	await tap("cancel_project","t46")
+	if not check(sim.s.cells[46].project=="" and sim.free_workers()==free_before and sim.s.food==food_before,"cancelling untouched construction returns grain and workers"): return
+	await build("academy",38)
+	await tap("assign",["t38",1])
+	await finish_site(38)
+	await ticks(12)
+	check(sim.s.science==0 and sim.s.cells[38].notes>=2,"notes stay at school until a player claims them")
+	await capture("06-academy")
 	await learn("seed")
-	check(sim.s.food>=24 and sim.s.seed==6,"opening grain reserve")
-	var water_id=-1
-	for i in sim.s.cells.size():
-		if V.tier(i)<0 and absi(i-40)<12: water_id=i;break
 	var inventory=sim.s.food
-	await tap("panel","build");await tap("tool","farm");await choose_cell(water_id)
-	check(game.world.build_tool=="farm" and sim.s.food==inventory,"rejected river construction spends nothing")
+	await tap("panel","build");await tap("tool","farm");await choose_cell(41)
+	check(game.world.build_tool=="farm" and sim.s.food==inventory,"river placement rejected without spending")
 	await key(KEY_ESCAPE)
-	await build("farm",low)
-	await tap("assign",["t"+str(low),1])
-	await build("farm",upland)
-	await ticks(24)
-	check(sim.s.cells[low].crop and sim.s.cells[upland].crop,"two planted fields")
+	await build("farm",low);await build("farm",upland)
+	await finish_site(upland)
+	await learn("dry")
+	await build("store",34);await build("house",46)
+	await finish_site(34);await finish_site(46)
 	await key(KEY_SPACE)
 	var frozen=sim.s.time
-	game.sim_step()
-	check(sim.s.time==frozen,"pause freezes production and seasonal clock")
+	game.sim_step();check(sim.s.time==frozen,"paused clock freezes work")
 	await key(KEY_3)
-	check(not game.paused and game.speed==4,"keyboard four-times speed")
-	game.testing=false
-	game._process(0.25)
-	game.testing=true
-	check(sim.s.time==frozen+1,"4x advances a simulation second per quarter second")
+	check(not game.paused and game.speed==4,"4x keyboard input")
+	game.testing=false;game._process(0.25);game.testing=true
+	check(sim.s.time==frozen+1,"one quarter second advances a tick at 4x")
 	await key(KEY_1)
-	await ticks(S.SEASON_TIME-sim.s.clock)
-	await learn("dry")
-	await build("store",40 if V.tier(40)>0 else 34)
-	await ticks(20)
-	await tap("pausemenu")
-	await tap("save")
+	await tap("pausemenu");await tap("save")
 	var manual=game.saves.read("campaign")
-	check(manual.time==sim.s.time and manual.workers==sim.s.workers,"manual save preserves workers in transit")
+	check(manual.workers==sim.s.workers and manual.cells[38].lesson==sim.s.cells[38].lesson,"workers and partial lessons saved")
 	await tap("pausemenu");await tap("settings");await tap("sound");await tap("sound");await tap("back");await tap("back")
 	await tap("forecast")
-	await frames(5)
 	await capture("02-river-valley")
-	await wait_era(1)
-	await learn("dike")
-	await wait_event("flood")
-	var snapshot=game.saves.read("campaign")
-	check(snapshot.pending=="flood" and snapshot.time==sim.s.time,"pending crisis autosaved at exact tick")
-	game.saves.put("comparison",snapshot)
+	await wait_ready()
+	if not check(sim.s.era==0 and sim.s.pop>10,"fed settlement grows with completed housing"): return
+	await ticks(2)
+	await bank_notes()
+	await pay_to_advance(0)
+	await learn("dike");await learn("scout")
+	for i in 240:
+		if failed or sim.s.pending=="flood": break
+		await ticks(1)
+	if not check(sim.s.pending=="flood","seasonal summer flood warning"): return
+	var common=game.saves.read("campaign")
+	check(common.pending=="flood" and common.time==sim.s.time,"warning auto-saved on its own tick")
+	game.saves.put("comparison",common)
 	await capture("03-flood-warning")
-	game.show_title()
-	await tap("continue")
-	check(sim.s.pending=="flood" and game.paused,"continued into same pending flood")
+	game.show_title();await tap("continue")
+	check(sim.s.pending=="flood" and game.paused,"reload preserves unresolved event")
 
 func route(index: int):
 	if failed: return
+	route_num=index
 	if index==1: game.start_game(game.saves.read("comparison"))
 	await tap("decision",index)
-	check(game.paused and sim.s.pending=="","planning time after decision")
-	var before=sim.s.time
-	game.sim_step();check(sim.s.time==before,"decision does not advance time")
+	check(game.paused and sim.s.pending=="","decision leaves time for deployment")
 	if index==0: await build("levee",low)
 	await key(KEY_SPACE)
-	await ticks(S.SEASON_TIME)
-	check(sim.s.flood_time>0 and sim.s.flood_cells.has(low)==(index==1),"levee changes flood reach")
-	check(sim.s.cells[low].crop==(index==0),"protected crop survives while flooded crop needs resowing")
+	await ticks(S.SEASON_TIME-sim.s.clock)
+	check(sim.s.flood_time>0 and sim.s.flood_cells.has(low)==(index==1),"placement changes flood reach")
+	check(sim.s.cells[low].crop==(index==0),"field behind dyke keeps standing crop")
 	results.append([sim.s.flood_cells.size(),sim.s.rescued,sim.s.lost])
 	if index==0:
 		await tap("panel","risk");await tap("overlay","")
-		await ticks(4)
-		await capture("04-high-water")
-	var owned_seed=sim.s.seed
-	if owned_seed<4:
-		await tap("panel","crew")
-		while sim.s.seed<4 and not failed: await tap("reserve",false)
-		await tap("closepanel")
-	await wait_era(2)
+		await ticks(4);await capture("04-high-water")
+	await tap("panel","crew")
+	for i in 3:
+		if sim.s.seed<4: await tap("reserve",false)
+	await tap("closepanel")
+	await visit(34)
+	await tap("site_work",["repair",34]);await finish_site(34)
+	check(sim.s.cells[34].condition>=99,"paid repair restores condition")
+	await pay_to_advance(1)
+	await learn("terrace");await learn("rotate")
 	if index==0:
-		await learn("terrace");await build("terrace",low)
+		await build("terrace",low);await finish_site(low)
+		await build("canal",40);await finish_site(40)
+		await learn("nursery")
+		await build("nursery",48);await finish_site(48)
+		for i in 280:
+			if failed or (sim.s.policy.has("blight") and sim.s.policy.has("weeds")): break
+			await ticks(1)
+		check(sim.s.policy.has("blight") and sim.s.policy.has("weeds") and sim.s.era==2,"irrigation and shared nursery cause distinct crises before modern age")
 	else:
-		await learn("rotate")
-		await tap("panel","crew");await tap("jump",upland)
-		await tap("field",[upland,"rotation"])
-	await wait_event("rain")
-	await tap("decision",index)
-	await key(KEY_SPACE)
-	await wait_era(3)
+		await visit(upland);await tap("field",[upland,"rotation"])
+		await visit(34);await tap("site_work",["upgrade",34]);await finish_site(34)
+		check(sim.s.cells[34].level==2 and S.Town.storage(sim.s)==120,"level-two warehouse increases usable capacity")
+	await pay_to_advance(2)
+	await ticks(S.SEASON_TIME*2)
+	check(not sim.s.policy.has("runoff") and sim.s.water==[0,0,0],"two modern seasons without fertilizer do not produce runoff")
+	await learn("machine");await learn("precise")
 	if index==0:
-		await learn("precise");await tap("panel","crew");await tap("jump",low);await tap("field",[low,"precise"])
+		await build("ditch",low);await finish_site(low)
+		await learn("fertilizer")
+		await visit(low);await tap("field",[low,"fertilized"])
+		check(sim.s.pending=="runoff" and sim.s.cause.runoff.tile==low,"first fertilizer application raises warning at its actual site")
+		game.show_title();await tap("continue")
+		check(sim.s.pending=="runoff","technology warning survives restart")
+		await tap("decision",0);await key(KEY_SPACE)
+		await visit(low);await tap("field",[low,"precise"])
 	else:
-		await learn("machine")
-		var site=-1
-		for i in [38,39,32,34,35,29,30]:
-			if sim.build_reason("station",i)=="": site=i;break
-		if not check(site>=0,"available machine station site"): return
-		await build("station",site)
-	await wait_event("runoff")
-	await tap("decision",0)
-	await key(KEY_SPACE)
-	await wait_event("blight")
-	await tap("decision",index)
-	await key(KEY_SPACE)
-	for n in 24:
-		if sim.s.outcome!="" or failed: break
-		await ticks(S.SEASON_TIME-sim.s.clock)
-	check(sim.s.outcome=="won","won route "+str(index)+" goals "+str(sim.goals()))
+		await build("station",47);await finish_site(47)
+		check(not sim.s.policy.has("blight") and not sim.s.policy.has("weeds"),"low-input route avoids undeployed technologies' hazards")
+	await pay_to_advance(3)
 	if failed: return
-	report("PASS route %d, seasons %d, food %d, seed %d, downstream pollution %d, inundated/saved/lost %s" % [index+1,sim.s.turn,sim.s.food,sim.s.seed,sim.s.water[2],results.back()])
+	report("PASS route %d: %d seasons, population %d, food %d, seeds %d, downstream pollution %d, warnings %s, flooded/rescued/lost %s" % [index+1,sim.s.turn,sim.s.pop,sim.s.food,sim.s.seed,sim.s.water[2],sim.s.policy.keys(),results.back()])
 	if index==0: await capture("05-victory")
 
 func run(main,out: String):
 	game=main;sim=main.sim;folder=out
 	picture=DisplayServer.get_name()!="headless"
-	report("Native UI verification, display "+DisplayServer.get_name()+" viewport "+str(get_viewport().get_visible_rect().size))
-	await frames(16)
-	await capture("01-title")
-	for i in [38,39,30,31,47,48,32,41]:
-		if sim.flood_map().has(i) and sim.s.cells[i].kind=="": low=i;break
-	for i in [37,46,34,29,35,28,36,43]:
-		if V.tier(i)>0 and sim.s.cells[i].kind=="": upland=i;break
-	if not check(low>=0 and upland>=0,"found lower and upper farmland"): return
+	report("Native replay on "+DisplayServer.get_name()+" at "+str(DisplayServer.window_get_size()))
+	await frames(12);await capture("01-title")
+	low=39;upland=37
 	await first_seasons()
 	if failed: return
 	await route(0)
 	if failed: return
 	await route(1)
 	if failed: return
-	check(results[0][0]<results[1][0] and results[1][1]>results[0][1] and results[1][2]<results[0][2],"same checkpoint gives distinct land and seed outcomes")
-	await tap("title")
-	await tap("new");await tap("confirmed_new")
+	check(results[0][0]<results[1][0] and results[1][1]>results[0][1] and results[0][2]>results[1][2],"shared checkpoint gives distinct flood and transport outcomes")
+	await tap("title");await tap("new");await tap("confirmed_new")
 	await ticks(6*S.SEASON_TIME)
-	check(sim.s.outcome=="lost","two seasons without food cause loss")
+	check(sim.s.outcome=="lost" and sim.s.science==0 and sim.s.pop<10,"shortage reduces population, famine ends game, time grants no knowledge")
 	await tap("retry")
-	check(sim.s.turn==0 and sim.s.food==30 and sim.s.outcome=="","chapter retry restores starting stocks")
+	check(sim.s.turn==0 and sim.s.food==30 and sim.s.pop==10 and sim.s.outcome=="","chapter retry restores its own household and stocks")
 	if failed: return
-	report("PASS comparison, pause/speed, crisis reload, famine, chapter retry and native mouse input")
+	report("PASS comparison, workforce, school collection, paid era gates, causally triggered risks, seasonal ledgers, save/load and famine retry")
 	game.shutdown(0)

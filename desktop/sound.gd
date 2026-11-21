@@ -8,6 +8,7 @@ var sounds={}
 
 func setup():
 	add_child(ambient); add_child(cue); add_child(rain)
+	if DisplayServer.get_name()=="headless": return
 	var rng=RandomNumberGenerator.new()
 	rng.seed=46429
 	for kind in ["water","rain","click","alert","finish"]:

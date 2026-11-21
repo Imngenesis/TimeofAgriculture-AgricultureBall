@@ -111,7 +111,11 @@ func setup(model):
 
 func _make_people():
 	var coats=[Color("#6b8077"),Color("#a66b43"),Color("#ab9165"),Color("#626e7a"),Color("#6f7955")]
-	for i in sim.s.pop:
+	while people.size()>sim.s.pop:
+		var old=people.pop_back()
+		old.visible=false
+		old.queue_free()
+	for i in range(people.size(),sim.s.pop):
 		var g=G.new()
 		var q=Vector3.ZERO
 		g.beam(q+Vector3(-0.048,0.03,0),q+Vector3(-0.042,0.19,0),0.029,0.035,Color("#55483c"),5)
@@ -193,9 +197,12 @@ func _flood_surface():
 	flood_surface.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 func refresh(force: bool=false):
+	if people.size()!=sim.s.pop: _make_people()
 	if force or rev!=sim.s.rev:
 		var g=G.new()
-		for id in sim.s.cells.size(): L.site(g,id,sim.s.cells[id],sim.s.turn%4,sim.s.sick)
+		for id in sim.s.cells.size():
+			var c=sim.s.cells[id]
+			L.site(g,id,c,sim.s.turn%4,c.kind=="farm" and sim.has_blight(id))
 		for edge in sim.s.edges.values(): L.dike(g,edge)
 		dynamic_sites=_replace(dynamic_sites,g,solid)
 		rev=sim.s.rev
@@ -213,6 +220,7 @@ func refresh(force: bool=false):
 				var c=sim.s.cells[i]
 				if risk=="flood" and sim.s.flood_time==0 and predicted.has(i): _tile(g,i,Color(0.87,0.56,0.25,0.40),0.12)
 				elif risk=="soil" and c.kind=="farm": _tile(g,i,Color(0.84,0.43,0.19,clampf((95-c.soil)/88.0,0.16,0.79)),0.15)
+				elif risk=="crop" and c.kind=="farm": _tile(g,i,Color(0.78,0.38,0.23,clampf((c.weeds+c.birds+c.disease)/110.0,0.12,0.75)),0.16)
 				elif risk=="water" and (V.tier(i)<1 or c.kind=="farm"):
 					var amount=sim.s.water[V.reach(i)]/40.0
 					_tile(g,i,Color(0.82,0.49,0.22,clampf(amount,0.12,0.68)),0.45 if V.tier(i)<0 else 0.14)
@@ -251,6 +259,9 @@ func update_mark():
 					if build_tool in ["terrace","ditch"]: c[build_tool]=true
 					else: c.kind=build_tool
 					L.site(preview,hover,c,0,false)
+					if build_tool in ["canal","station","nursery"]:
+						for id in sim.farms():
+							if V.distance(hover,id)<=1: _ring(g,id,Color("#9fe1ba"),0.085)
 	marks=_replace(marks,g,overlay_material)
 	for i in preview.colors.size(): preview.colors[i]=Color(0.67,0.96,0.72,0.56)
 	ghost=_replace(ghost,preview,overlay_material)

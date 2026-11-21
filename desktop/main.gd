@@ -61,7 +61,7 @@ func show_title():
 
 func start_game(restored: Dictionary={}):
 	if restored.is_empty(): sim.reset()
-	else: sim.s=restored;sim.events.clear()
+	else: sim.restore(restored)
 	paused=false;playing=true;speed=1;acc=0;edge_job="";dialog_key=""
 	world.set_menu(false)
 	hud.game_view()
@@ -96,11 +96,14 @@ func open_crisis():
 	hud.panel_key=""
 	world.build_tool=""
 	var target=Model.HOME
-	for id in sim.farms():
-		target=id
-		if Valley.tier(id)==0: break
+	if sim.s.cause.has(sim.s.pending):
+		target=sim.s.cause[sim.s.pending].tile
+	elif sim.s.pending in ["flood","rain"]:
+		for id in sim.farms():
+			target=id
+			if Valley.tier(id)==0: break
 	world.focus(target)
-	world.risk={"flood":"flood","rain":"soil","runoff":"water","blight":""}.get(sim.s.pending,"")
+	world.risk={"flood":"flood","rain":"soil","runoff":"water"}.get(sim.s.pending,"crop")
 	world.refresh()
 	audio.effect("alert")
 	modal("crisis")
@@ -175,7 +178,37 @@ func command(cmd: String,arg=null):
 			select(sim.s.edges[arg].a,true);edge_job="e"+arg
 		"research":
 			result=sim.research(arg)
-			if result=="": hud.notify("开始研习「"+Model.TECH[arg][0]+"」，需要 8 秒。")
+			if result=="": hud.notify("开始研习「"+Model.TECH[arg][0]+"」，需要农专人员投入 8 人秒。")
+		"academy":
+			if sim.academy_id()>=0: select(sim.academy_id(),true)
+			else:
+				hud.panel_key="";world.selected=-1;world.edge_shift=0;world.build_tool="academy"
+		"collect":
+			var before=sim.s.science
+			result=sim.collect(int(arg))
+			if result=="": hud.notify("在农专领取了 %d 点科技。" % (sim.s.science-before))
+		"repair_edge": result=sim.repair_edge(arg)
+		"cancel_project":
+			result=sim.cancel_project(arg)
+			if result=="":
+				if edge_job!="" and not sim.s.edges.has(edge_job.substr(1)): edge_job=""
+				hud.notify(sim.events.back())
+		"site_work":
+			result=sim.construct(arg[0],arg[1])
+			if result=="": hud.notify("施工已开始，可在此增派人员。")
+		"review_era":
+			result=sim.advance_reason()
+			if result=="": modal("advance")
+		"advance":
+			if dialog_key!="advance": return
+			result=sim.advance(int(arg))
+			if result=="":
+				close_modal()
+				hud.panel_key=""
+				if sim.s.outcome=="won": modal("end")
+				else: write_save("chapter")
+				write_save("campaign")
+				audio.effect("finish")
 		"reserve":
 			result=sim.reserve(arg)
 			if result=="": hud.notify("口粮 %d · 种粮 %d" % [sim.s.food,sim.s.seed])
@@ -212,12 +245,16 @@ func command(cmd: String,arg=null):
 		"hint":
 			if sim.s.era==0:
 				if sim.assigned("t"+str(Model.WILD[0]))<2 and not sim.s.first_crop: select(Model.WILD[0],true)
+				elif sim.academy_id()<0: command("academy")
+				elif not sim.s.tech.has("seed") and sim.s.science<2: select(sim.academy_id(),true)
 				elif not sim.s.tech.has("seed"): hud.panel_key="study"
 				elif sim.s.seed<2 and sim.farms().is_empty(): hud.panel_key="crew"
 				elif sim.farms().is_empty(): hud.panel_key="build"
-				else: select(sim.farms()[0],true)
-			elif sim.s.era==1: world.risk="flood";hud.panel_key="build" if sim.s.tech.has("dike") else "study"
-			elif sim.s.era in [2,3]: hud.panel_key="study"
+				else: hud.panel_key="era"
+			else: hud.panel_key="era"
+	if playing and sim.s.pending!="" and dialog_key!="crisis":
+		write_save("campaign")
+		open_crisis()
 	if result!="": hud.notify(result)
 	if playing: refresh(true)
 	if cmd not in ["sound","quit","decision"]: audio.effect("click")
@@ -229,7 +266,6 @@ func refresh(force: bool=false):
 
 func sim_step():
 	if not playing or paused or dialog_key!="": return
-	var era=sim.s.era
 	var turn=sim.s.turn
 	sim.tick()
 	if not sim.events.is_empty():
@@ -237,10 +273,10 @@ func sim_step():
 		sim.events.clear()
 	if turn!=sim.s.turn:
 		sim.s.rev+=1
-		if era!=sim.s.era:
-			write_save("chapter");audio.effect("finish")
 		write_save("campaign")
-	if sim.s.pending!="": open_crisis()
+	if sim.s.pending!="":
+		if turn==sim.s.turn: write_save("campaign")
+		open_crisis()
 	elif sim.s.outcome!="": audio.effect("finish");modal("end")
 	refresh()
 

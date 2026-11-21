@@ -1,6 +1,7 @@
 extends RefCounted
 
 const V = preload("res://valley.gd")
+const Town = preload("res://settlement.gd")
 const SEASONS = ["春","夏","秋","冬"]
 const ERAS = ["原始采集","早期农耕","传统农耕","工业与现代农业"]
 const CHAPTERS = ["在江边扎根","与洪水争田","留住坡上的土","让河水重归清澈"]
@@ -8,20 +9,26 @@ const ROMAN = ["Ⅰ","Ⅱ","Ⅲ","Ⅳ"]
 const SEASON_TIME = 40
 const TECH = {
 	"seed": ["留种试种",0,2,[],"解锁稻田。春夏从种仓播种，秋季收粮。"],
-	"dry": ["谷物晾晒",0,2,[],"解锁备荒粮仓。高地粮仓可扩大洪时转运量。"],
-	"dike": ["圩堤排水",1,3,["seed"],"解锁田堤。沿进水边修堤，阻断连通低地的洪水。"],
+	"dry": ["谷物晾晒",0,2,[],"解锁粮仓。建仓后的第一个成熟稻季会引来谷鸟。"],
+	"dike": ["圩堤排水",1,3,["seed"],"解锁田堤与灌渠。新渠第一次灌到在田作物时会出现草害。"],
 	"scout": ["田间巡查",1,2,["seed"],"解锁巡田。提前护住下一次可能染病的作物。"],
-	"terrace": ["等高筑田",2,3,["dike"],"解锁梯田。阶坎减缓冲刷，完工时补充地力。"],
-	"rotate": ["稻豆轮作",2,3,["seed"],"解锁轮作。每季恢复地力，梅雨时保护表土。"],
-	"machine": ["机械稻作",3,3,["seed"],"解锁农机站。全谷稻田增产，减轻人手压力。"],
-	"precise": ["测土配肥",3,3,["terrace","rotate"],"解锁精准配肥与净水沟。减少农田向下游的排放。"]
+	"terrace": ["等高筑田",2,4,["dike"],"解锁梯田。阶坎减缓冲刷，完工时补充地力。"],
+	"rotate": ["稻豆轮作",2,4,["seed"],"解锁轮作。每季恢复地力，梅雨时保护表土。"],
+	"nursery": ["集中育秧",2,3,["seed"],"选修。公共秧圃覆盖田增产 4 份，首次在田使用会出现作物病情预警。"],
+	"machine": ["机械稻作",3,5,["seed"],"解锁农机站。服务范围内的稻田增产 5 份。"],
+	"precise": ["测土配肥",3,5,["terrace","rotate"],"解锁精准配肥与净水沟，控制尾水排放。"],
+	"fertilizer": ["化肥增产",3,3,["rotate","terrace"],"选修。田块首次启用高投入施肥会触发尾水预警，每茬增产 6 份，也会积累污染。"]
 }
 # 名称、所需科技、口粮成本、完工所需人秒
 const BUILD = {
+	"academy":["农专","",3,8], "house":["农舍","",4,10],
 	"farm":["试种稻田","seed",2,9], "store":["备荒粮仓","dry",4,14],
-	"levee":["田堤","dike",4,16], "terrace":["等高梯田","terrace",4,14],
-	"station":["农机服务站","machine",5,18], "ditch":["农田净水沟","precise",3,12]
+	"levee":["田堤","dike",4,16], "canal":["共用灌渠","dike",5,13], "terrace":["等高梯田","terrace",4,14],
+	"nursery":["公共秧圃","nursery",5,14], "station":["农机服务站","machine",6,18], "ditch":["农田净水沟","precise",3,12],
+	"upgrade":["扩建二级","",6,16], "repair":["修复设施","",2,8]
 }
+const FACILITIES=["academy","house","farm","store","canal","nursery","station"]
+const SERVICE={"academy":"到岗人员每合计 12 人秒编成 1 点，点农专领取。","house":"每级提供 4 个安居名额。","farm":"春夏使用 2 份种粮播种，秋收后留种。二级田增产 4 份。","store":"每级增加 36 份口粮仓容，高处可避洪。","levee":"封住进水边，保护连通低地。","canal":"建在河岸低地。范围内稻田增产 3 份，扩建后覆盖两格。","terrace":"改良已开垦稻田，减轻冲刷。","nursery":"范围内稻田增产 4 份，同时引入病情风险。","station":"范围内稻田增产 5 份，扩建后覆盖两格。","ditch":"改良已开垦稻田，拦截本河段尾水。"}
 const LAND = ["河岸低地","台地","高地"]
 const HOME = 28
 const WILD = [19,42,60]
@@ -34,11 +41,16 @@ const CRISIS = {
 		"保住表土","把秸秆覆盖田面，本次每块田额外减少 6 点地力损失。"],
 	"runoff":["下游水色变了","稻田尾水正在汇入河道。化肥带来的产量会反映在秋收，排放则逐季流向下游。",
 		"留出缓冲带","划出岸边草带，每季截留下游 4 点污染，保留常规产量。",
-		"集中保产","本时代每田额外增产 4 份，每季增加污染；净水沟可截流。"],
+		"集中保产","使用化肥的田块额外增产 4 份，每季多排放 3 点，净水沟可截流。"],
 	"blight":["穗上出现病斑","巡田人从几块田带回有斑点的稻穗。下一次秋收会检验这片河谷的防病能力。",
 		"分田巡护","本次疫病减轻，已巡查的田保住大部分收成。",
-		"保护种仓","优先保留良种，立刻封存最多 4 份口粮做种，田间承受较重损失。"]
+		"保护种仓","优先保留良种，立刻封存最多 4 份口粮做种，田间承受较重损失。"],
+	"birds":["晒场里的谷鸟","晾晒和集中储藏吸引了谷鸟，成熟田开始受食害。",
+		"拨粮护田","耗 2 份口粮，组织持续守望，降低食害压力。","先顾口粮","保留现粮，成熟田承担较多食害。"],
+	"weeds":["引水田里的杂草","共用灌渠开始给稻田供水，田边出现争水的杂草。",
+		"拨粮除草","耗 2 份口粮组织清理，受灌田的草害增长减缓。","维持供水","保留口粮与灌渠产出，轮作可以缓解草害。"]
 }
+const RESPONSES={"flood":["dike","move"],"rain":["slope","mulch"],"runoff":["buffer","intensive"],"blight":["inspect","seed"],"birds":["watch","keep"],"weeds":["clear","keep"]}
 
 var s: Dictionary
 var events: Array = []
@@ -53,21 +65,45 @@ func reset():
 		cells.append({"kind":kind,"project":"","done":0,"soil":65 + (id*7)%12,
 			"crop":false,"care":0,"last":0,"harvests":0,"terrace":false,"rotation":false,
 			"precise":false,"ditch":false,"patrol":-1,"compost":-1,"wildwork":0,"picked":0,"flood":false})
-	s = {"version":1,"turn":0,"clock":0,"time":0,"era":0,"age":0,"food":30,"seed":0,
-		"pop":10,"science":3,"tech":[],"study":"","study_time":0,"cells":cells,"edges":{},
+	s = {"version":2,"turn":0,"clock":0,"time":0,"era":0,"age":0,"food":30,"seed":0,
+		"pop":10,"science":0,"tech":[],"study":"","study_time":0,"cells":cells,"edges":{},
 		"workers":[],"water":[0,0,0],"full":0,"empty":0,"pending":"","policy":{},
 		"flood_at":-1,"flood_time":0,"flood_cells":[],"evacuated":0,"rescued":0,"lost":0,
 		"winter":false,"first_crop":false,"resown":false,"rain":false,"after_blight":false,
 		"blight_at":-1,"sick":false,"outcome":"","log":[],"last_report":"","rev":0,
-		"ledger":book(),"last_ledger":{}}
+		"ledger":book(30),"last_ledger":{}}
+	_extend_state()
 	for i in 10:
-		var base = rest_position(i)
-		s.workers.append({"job":"","from":base,"to":base,"path":[base,base],"length":0.0,"travel":0,"duration":1})
+		add_worker()
 	events.clear()
 	note("十人在江边扎营，带来了三十份口粮。")
 
-func book() -> Dictionary:
-	return {"gather":0,"crop":0,"build":0,"eat":0,"loss":0,"sow":0}
+func book(opening: int) -> Dictionary:
+	return {"opening":opening,"gather":0,"crop":0,"refund":0,"build":0,"maintenance":0,"advance":0,"eat":0,"loss":0,"sow":0,"spoil":0,"science":0,"ending":opening}
+
+func _extend_state():
+	s.merge({"happiness":62,"organization":65,"shortage":0,"growth":0,"last_need":0,"last_served":0,"pop_change":0,
+		"modern_harvest":false,"cause":{},"warnings":[],"end_reason":""})
+	for c in s.cells:
+		c.merge({"level":1,"condition":100,"notes":0,"lesson":0,"fertilized":false,"pollution":0,"sown_pollution":0,"birds":0,"weeds":0,"disease":0})
+	for e in s.edges.values(): e.merge({"condition":100,"repairing":false})
+
+func restore(state: Dictionary):
+	s=state
+	if s.version==1:
+		_extend_state()
+		var old=s.ledger
+		var opening=s.food+s.seed-old.gather-old.crop+old.build+old.sow+old.loss+old.eat
+		old.merge(book(opening))
+		if not s.last_ledger.is_empty(): s.last_ledger.merge({"maintenance":0,"advance":0,"spoil":0,"science":0,"refund":0})
+		s.modern_harvest=s.era==3 and s.after_blight
+		if s.outcome=="lost": s.end_reason="连续两季完全断粮。"
+		s.version=2
+	events.clear()
+
+func add_worker():
+	var base=rest_position(s.workers.size())
+	s.workers.append({"job":"","from":base,"to":base,"path":[base,base],"length":0.0,"travel":0,"duration":1})
 
 func rest_position(i: int) -> Vector2:
 	var a = i*2.4
@@ -87,11 +123,6 @@ func farms() -> Array:
 		if s.cells[i].kind=="farm": ids.append(i)
 	return ids
 
-func has_build(kind: String) -> bool:
-	for c in s.cells:
-		if c.kind==kind: return true
-	return false
-
 func mean_soil() -> int:
 	var ids=farms()
 	if ids.is_empty(): return 0
@@ -101,19 +132,35 @@ func mean_soil() -> int:
 
 func tagged(kind: String) -> bool:
 	for i in farms():
-		if s.cells[i][kind]: return true
+		if Town.working(s.cells[i]) and s.cells[i][kind]: return true
 	return false
+
+func academy_id() -> int:
+	for i in s.cells.size():
+		if s.cells[i].kind=="academy" or s.cells[i].project=="academy": return i
+	return -1
+
+func collect(id: int) -> String:
+	if id<0 or id>=s.cells.size() or s.cells[id].kind!="academy": return "请前往已建成的农专"
+	var c=s.cells[id]
+	if c.flood: return "等到退水后再来领点"
+	if c.notes<=0: return "尚无可领取的科技点，先派人到岗研习"
+	var amount=c.notes
+	s.science+=amount
+	c.notes=0
+	note("在农专领取 %d 点科技。" % amount)
+	return ""
 
 func location_name(id: int) -> String:
 	var c=s.cells[id]
 	if V.tier(id)<0: return ["上游河道","中游河道","下游河道"][V.reach(id)]
+	if c.project in ["upgrade","repair"]: return BUILD[c.kind][0]+" · "+BUILD[c.project][0]
 	if c.project!="": return BUILD[c.project][0]+"工地"
 	match c.kind:
 		"camp": return "河谷营地"
 		"wild": return "野粮采集地"
 		"farm": return "等高梯田" if c.terrace else ("稻豆轮作田" if c.rotation else "稻田")
-		"store": return "备荒粮仓"
-		"station": return "农机服务站"
+	if BUILD.has(c.kind): return BUILD[c.kind][0]
 	return LAND[V.tier(id)]
 
 func research_reason(id: String) -> String:
@@ -122,12 +169,12 @@ func research_reason(id: String) -> String:
 	if s.tech.has(id): return "已掌握"
 	if s.study!="": return "正在研习"+TECH[s.study][0]
 	if s.era<t[1]: return "在"+ERAS[t[1]]+"开放"
-	if not t[3].is_empty():
-		var qualified=false
-		for pre in t[3]:
-			if s.tech.has(pre): qualified=true
-		if not qualified: return "先掌握"+TECH[t[3][0]][0]
-	if s.science<t[2]: return "农学点不足"
+	var missing=[]
+	for pre in t[3]:
+		if not s.tech.has(pre): missing.append(TECH[pre][0])
+	if not missing.is_empty(): return "先掌握"+"、".join(missing)
+	if s.science<t[2]: return "科技点不足，请派人去农专并领取"
+	if Town.facilities(s,"academy").is_empty(): return "需有一所正常运作的农专"
 	return ""
 
 func research(id: String) -> String:
@@ -168,7 +215,7 @@ func flood_map(extra: String="") -> Array:
 			var inlet=V.nb(i,d)
 			if not wet.has(inlet): continue
 			var key=V.edge_key(i,inlet)
-			if key==extra or (s.edges.has(key) and s.edges[key].built): continue
+			if key==extra or (s.edges.has(key) and s.edges[key].built and s.edges[key].condition>=Town.WORKING_CONDITION): continue
 			wet.append(i)
 		if wet.size()==count: break
 	var fields=[]
@@ -186,7 +233,7 @@ func protected_by(id: int,d: int) -> Array:
 func build_reason(kind: String,id: int,d: int=0) -> String:
 	if not BUILD.has(kind) or id<0 or id>=s.cells.size(): return "请选择地图内地块"
 	var def=BUILD[kind]
-	if not s.tech.has(def[1]): return "先研习「"+TECH[def[1]][0]+"」"
+	if def[1]!="" and not s.tech.has(def[1]): return "先研习「"+TECH[def[1]][0]+"」"
 	if V.tier(id)<0: return "河道内不能施工"
 	var c=s.cells[id]
 	if c.flood: return "待洪水退去再施工"
@@ -195,11 +242,18 @@ func build_reason(kind: String,id: int,d: int=0) -> String:
 		if k=="": return "超出河谷边界"
 		if s.edges.has(k): return "这段堤岸已占用"
 		if V.tier(id)!=0 or protected_by(id,d).is_empty(): return "这里不是来水口，请选临河低地"
+	elif kind in ["upgrade","repair"]:
+		if not c.kind in FACILITIES or c.project!="": return "请选择已完工且空闲的设施"
+		if kind=="repair" and c.condition>=100: return "设施完好"
+		if kind=="upgrade" and c.level>=2: return "已扩至二级"
+		if kind=="upgrade" and c.condition<Town.WORKING_CONDITION: return "请先检修设施"
 	elif kind in ["terrace","ditch"]:
 		if c.kind!="farm": return "请选择一块已开垦的稻田"
 		if c[kind]: return "这块田已有"+def[0]
 		if c.project!="": return "田上已有工程"
 	elif c.kind!="" or c.project!="": return "这块地已占用"
+	if kind=="academy" and academy_id()>=0: return "河谷已有农专，可前往派工或扩建"
+	if kind=="canal" and V.tier(id)!=0: return "渠首须设在临河低地"
 	if s.food<def[2]: return "口粮不足，需 %d 份" % def[2]
 	return ""
 
@@ -207,11 +261,12 @@ func construct(kind: String,id: int,d: int=0) -> String:
 	var why=build_reason(kind,id,d)
 	if why!="": return why
 	s.food-=BUILD[kind][2]
-	s.ledger.build+=BUILD[kind][2]
+	if kind=="repair": s.ledger.maintenance+=BUILD[kind][2]
+	else: s.ledger.build+=BUILD[kind][2]
 	var job="t"+str(id)
 	if kind=="levee":
 		var key=edge_for(id,d)
-		s.edges[key]={"a":id,"dir":d,"built":false,"done":0}
+		s.edges[key]={"a":id,"dir":d,"built":false,"done":0,"condition":100,"repairing":false}
 		job="e"+key
 	else:
 		s.cells[id].project=kind
@@ -219,6 +274,50 @@ func construct(kind: String,id: int,d: int=0) -> String:
 	if free_workers()>0 and assigned(job)==0: assign(job,1)
 	s.rev+=1
 	note(V.address(id)+"动工修建"+BUILD[kind][0]+"。")
+	return ""
+
+func repair_edge(key: String) -> String:
+	if not s.edges.has(key): return "找不到田堤"
+	var e=s.edges[key]
+	if not e.built or e.repairing or e.condition>=100: return "此段田堤暂时无需检修"
+	if s.food<BUILD.repair[2]: return "检修需要两份口粮"
+	s.food-=BUILD.repair[2]
+	s.ledger.maintenance+=BUILD.repair[2]
+	e.done=0
+	e.repairing=true
+	if free_workers()>0: assign("e"+key,1)
+	s.rev+=1
+	return ""
+
+func project_refund(kind: String,completed: int) -> int:
+	var spec=BUILD[kind]
+	return floori(float(spec[2])*maxi(0,spec[3]-completed)/spec[3])
+
+func cancel_project(job: String) -> String:
+	var refund=0
+	if job.begins_with("e"):
+		var key=job.substr(1)
+		if not s.edges.has(key): return "工地已结束"
+		var e=s.edges[key]
+		if e.built and not e.repairing: return "田堤已经合拢"
+		refund=project_refund("repair" if e.repairing else "levee",e.done)
+		release_job(job)
+		if e.repairing: e.repairing=false;e.done=BUILD.levee[3]
+		else: s.edges.erase(key)
+	elif job.begins_with("t") and job.substr(1).is_valid_int():
+		var id=int(job.substr(1))
+		if id<0 or id>=s.cells.size(): return "找不到工地"
+		var c=s.cells[id]
+		if c.project=="": return "工地已结束"
+		refund=project_refund(c.project,c.done)
+		c.project=""
+		c.done=0
+		while assigned(job)>capacity(job): assign(job,-1)
+	else: return "找不到工地"
+	s.food+=refund
+	s.ledger.refund+=refund
+	s.rev+=1
+	note("撤回工程，未用工粮 %d 份归仓。" % refund)
 	return ""
 
 func job_label(job: String) -> String:
@@ -238,12 +337,13 @@ func free_workers() -> int:
 func capacity(job: String) -> int:
 	if job.begins_with("e"):
 		var k=job.substr(1)
-		return 4 if s.edges.has(k) and not s.edges[k].built else 0
+		return 4 if s.edges.has(k) and (not s.edges[k].built or s.edges[k].repairing) else 0
 	if not job.begins_with("t"): return 0
 	var id=int(job.substr(1))
 	if id<0 or id>=s.cells.size(): return 0
 	var c=s.cells[id]
 	if c.project!="" or c.kind in ["wild","farm"]: return 4
+	if c.kind=="academy": return 2 if c.level==1 else 4
 	if id==HOME and s.policy.get("flood","")=="move" and s.flood_at<0: return 2
 	return 0
 
@@ -307,7 +407,14 @@ func release_job(job: String):
 func field_action(id: int,kind: String) -> String:
 	if id<0 or id>=s.cells.size() or s.cells[id].kind!="farm": return "请选择一块稻田"
 	var c=s.cells[id]
+	if not Town.working(c): return "田块正在施工、受淹或待检修"
 	match kind:
+		"fertilized":
+			if not s.tech.has("fertilizer"): return "先研习化肥增产"
+			if c.fertilized:
+				c.fertilized=false
+				s.rev+=1
+				return ""
 		"rotation":
 			if not s.tech.has("rotate"): return "先研习稻豆轮作"
 			if c.rotation: return "已实行轮作"
@@ -325,6 +432,11 @@ func field_action(id: int,kind: String) -> String:
 	s.food-=2
 	s.ledger.build+=2
 	match kind:
+		"fertilized":
+			c.fertilized=true
+			s.water[V.reach(id)]=mini(100,s.water[V.reach(id)]+8)
+			queue_warning("runoff",id,"化肥增产首次用于这块稻田")
+			next_warning()
 		"rotation": c.rotation=true; c.soil=mini(95,c.soil+5)
 		"precise": c.precise=true
 		"patrol": c.patrol=s.turn+3
@@ -332,11 +444,39 @@ func field_action(id: int,kind: String) -> String:
 	s.rev+=1
 	return ""
 
+func response_cost(key: String,index: int) -> int:
+	return 2 if key in ["birds","weeds"] and index==0 else 0
+
+func queue_warning(key: String,id: int,why: String):
+	if s.policy.has(key) or s.cause.has(key) or s.pending==key: return
+	s.cause[key]={"tile":id,"why":why}
+	s.warnings.append(key)
+
+func next_warning():
+	if s.pending=="" and not s.warnings.is_empty() and s.outcome=="":
+		s.pending=s.warnings.pop_front()
+
+func detect_crop_risk():
+	for i in farms():
+		var c=s.cells[i]
+		if not c.crop or not Town.working(c): continue
+		if not s.cause.has("birds") and s.tech.has("dry") and s.turn%4==2 and Town.total_level(s,"store")>0:
+			queue_warning("birds",i,"谷物晾晒已投入使用，成熟稻田与粮仓同时存在")
+		if not s.cause.has("weeds") and s.tech.has("dike") and Town.covered(s,i,"canal"):
+			queue_warning("weeds",i,"圩堤排水解锁的共渠开始灌溉在田作物")
+		if not s.cause.has("blight") and s.tech.has("nursery") and Town.covered(s,i,"nursery"):
+			queue_warning("blight",i,"集中育秧解锁的秧圃开始给在田作物供秧")
+	next_warning()
+
 func decide(index: int) -> String:
 	var key=s.pending
 	if key=="" or index<0 or index>1: return "没有待处理的预警"
+	var fee=response_cost(key,index)
+	if s.food<fee: return "口粮不足，可以选择保留现粮"
+	s.food-=fee
+	s.ledger.maintenance+=fee
 	s.pending=""
-	s.policy[key]=[["dike","move"],["slope","mulch"],["buffer","intensive"],["inspect","seed"]][["flood","rain","runoff","blight"].find(key)][index]
+	s.policy[key]=RESPONSES[key][index]
 	if key=="flood" and index==1:
 		var job="t"+str(HOME)
 		for n in 2:
@@ -348,11 +488,14 @@ func decide(index: int) -> String:
 			assign(job,1)
 	if key=="blight":
 		s.sick=true
+		s.after_blight=false
 		s.blight_at=s.turn
 		if index==1:
 			for n in 2:
 				if s.food>=2: reserve()
 	note(CRISIS[key][0]+"，聚落决定"+CRISIS[key][2+2*index]+"。")
+	s.rev+=1
+	next_warning()
 	return ""
 
 func _finish_site(id: int):
@@ -360,12 +503,15 @@ func _finish_site(id: int):
 	var kind=c.project
 	c.project=""
 	c.done=0
-	if kind in ["terrace","ditch"]:
+	if kind=="repair": c.condition=100
+	elif kind=="upgrade": c.level=2; c.condition=100
+	elif kind in ["terrace","ditch"]:
 		c[kind]=true
 		if kind=="terrace": c.soil=mini(96,c.soil+10)
 	else:
 		c.kind=kind
-	if c.kind!="farm": release_job("t"+str(id))
+	if not c.kind in ["farm","academy"]: release_job("t"+str(id))
+	while assigned("t"+str(id))>capacity("t"+str(id)): assign("t"+str(id),-1)
 	s.rev+=1
 	note(V.address(id)+"的"+BUILD[kind][0]+"已完工。")
 
@@ -384,6 +530,19 @@ func work():
 			var bonus=2 if c.project=="terrace" and s.policy.get("rain","")=="slope" and not s.rain else 1
 			c.done+=hands*bonus
 			if c.done>=BUILD[c.project][3]: _finish_site(i)
+		elif c.kind=="academy" and Town.working(c):
+			if s.study!="":
+				s.study_time=maxi(0,s.study_time-hands)
+				if s.study_time==0:
+					s.tech.append(s.study)
+					note("研习完成："+TECH[s.study][0]+"。")
+					s.study=""
+			else:
+				c.lesson+=hands
+				while c.lesson>=Town.LESSON:
+					c.lesson-=Town.LESSON
+					c.notes+=1
+					s.ledger.science+=1
 		elif c.kind=="wild":
 			if c.picked>=forage_limit(): continue
 			c.wildwork+=hands
@@ -393,10 +552,11 @@ func work():
 				c.picked+=1
 				s.food+=1
 				s.ledger.gather+=1
-		elif c.kind=="farm":
+		elif c.kind=="farm" and Town.working(c):
 			if not c.crop and season in [0,1] and s.seed>=2:
 				c.crop=true
 				c.care=0
+				c.sown_pollution=c.pollution
 				s.seed-=2
 				s.ledger.sow+=2
 				if s.flood_at>=0 and s.turn>s.flood_at: s.resown=true
@@ -406,6 +566,14 @@ func work():
 			s.evacuated+=hands
 	for k in s.edges:
 		var e=s.edges[k]
+		if e.repairing:
+			e.done+=assigned("e"+k,true)
+			if e.done>=BUILD.repair[3]:
+				e.repairing=false
+				e.condition=100
+				release_job("e"+k)
+				s.rev+=1
+			continue
 		if e.built: continue
 		e.done+=assigned("e"+k,true)*(2 if s.policy.get("flood","")=="dike" and s.flood_at<0 else 1)
 		if e.done>=BUILD.levee[3]:
@@ -418,12 +586,6 @@ func tick():
 	if s.outcome!="" or s.pending!="": return
 	s.time+=1
 	s.clock+=1
-	if s.study!="":
-		s.study_time-=1
-		if s.study_time<=0:
-			s.tech.append(s.study)
-			note("研习完成："+TECH[s.study][0]+"。")
-			s.study=""
 	work()
 	if s.flood_time>0:
 		s.flood_time-=1
@@ -432,6 +594,7 @@ func tick():
 			s.rev+=1
 			note("洪水退去，受淹田块可以重新耕种。")
 	if s.clock>=SEASON_TIME: finish_season()
+	if s.outcome=="": detect_crop_risk()
 
 func hit_flood():
 	s.flood_at=s.turn
@@ -441,12 +604,13 @@ func hit_flood():
 	for i in s.flood_cells:
 		var c=s.cells[i]
 		if c.crop: drowned+=1
+		if c.kind in FACILITIES: c.condition=maxi(0,c.condition-18)
 		c.flood=true
 		c.crop=false
 		c.care=0
 	var high_store=false
 	for i in s.cells.size():
-		if s.cells[i].kind=="store" and not s.flood_cells.has(i): high_store=true
+		if s.cells[i].kind=="store" and Town.working(s.cells[i]) and not s.flood_cells.has(i): high_store=true
 	var moved=mini(14 if high_store else 6,floori(float(s.evacuated)/4))
 	var exposed_store=false
 	var exposed_farms=0
@@ -466,43 +630,91 @@ func hit_flood():
 	s.rev+=1
 	note("洪峰淹及 %d 块低地，%d 块在田作物需重播。抢回 %d 份粮种，仓储损失 %d 份。" % [s.flood_cells.size(),drowned,s.rescued,s.lost])
 
+func expected_yield(id: int) -> int:
+	var c=s.cells[id]
+	if c.kind!="farm" or c.flood: return 0
+	var gross=8+floori(c.care/10.0)+floori(c.soil/10.0)+4*(c.level-1)
+	if Town.covered(s,id,"station"): gross+=5
+	if Town.covered(s,id,"canal"): gross+=3
+	if Town.covered(s,id,"nursery"): gross+=4
+	if c.precise: gross+=3
+	if c.fertilized: gross+=6+(4 if s.policy.get("runoff","")=="intensive" else 0)
+	var land_factor=1.0-0.004*float(c.sown_pollution if c.crop else c.pollution)
+	var pest_factor=1.0-minf(0.48,(c.birds+c.weeds+c.disease)/330.0)
+	if has_blight(id):
+		pest_factor*=0.90 if c.patrol>=s.turn else (0.70 if s.policy.get("blight","")=="inspect" else 0.53)
+	return maxi(1,roundi(gross*land_factor*pest_factor*(1.0 if c.condition>=Town.WORKING_CONDITION else 0.6)))
+
+func has_blight(id: int) -> bool:
+	return s.sick and (not s.cause.has("blight") or s.cause.blight.tile==id or Town.covered(s,id,"nursery"))
+
 func harvest():
 	var total=0
+	var affected_harvest=false
 	for i in farms():
 		var c=s.cells[i]
 		if not c.crop: continue
-		var amount=8+floori(c.care/10.0)+floori(c.soil/10.0)+(5 if has_build("station") else 0)+(3 if c.precise else 0)
-		if s.policy.get("runoff","")=="intensive": amount+=4
-		if s.sick:
-			var factor=0.88 if c.patrol>=s.turn else (0.65 if s.policy.get("blight","")=="inspect" else 0.48)
-			amount=maxi(1,roundi(amount*factor))
+		var amount=expected_yield(i)
+		if has_blight(i): affected_harvest=true
+		if s.era==3 and Town.working(c) and (c.precise or c.ditch or c.fertilized or Town.covered(s,i,"station")):
+			s.modern_harvest=true
 		c.crop=false
 		c.last=amount
 		c.harvests+=1
 		c.care=0
-		s.food+=amount-2
-		s.seed+=2
+		var saved=mini(2,amount)
+		s.food+=amount-saved
+		s.seed+=saved
 		total+=amount
 		s.ledger.crop+=amount
 		s.first_crop=true
 		s.rev+=1
 	if total>0:
-		if s.sick:
+		if affected_harvest:
 			s.after_blight=true
 			s.sick=false
-		note("秋收 %d 份，各收获田已各留两份种粮。" % total)
+		note("秋收 %d 份，每块收获田已优先留种。" % total)
 
 func water_step():
 	var previous=s.water.duplicate()
 	var load_by_reach=[0,0,0]
-	if s.era==3:
-		for i in farms():
-			var c=s.cells[i]
-			load_by_reach[V.reach(i)]+= (1 if c.precise else 4)+(3 if s.policy.get("runoff","")=="intensive" else 0)-(8 if c.ditch else 0)
+	for i in farms():
+		var c=s.cells[i]
+		var runoff=0
+		if c.fertilized:
+			runoff=(3 if c.precise else 7)+(3 if s.policy.get("runoff","")=="intensive" else 0)
+		var removal=0
+		if Town.working(c):
+			removal=(5 if c.ditch else 0)+(2 if c.precise else 0)+(1 if c.rotation else 0)
+		c.pollution=clampi(c.pollution+runoff-removal,0,100)
+		load_by_reach[V.reach(i)]+=runoff-(8 if c.ditch and Town.working(c) else 0)
 	for r in 3:
 		var inflow=roundi(previous[r-1]*0.38) if r>0 else 0
-		var baseline=4 if s.era==3 and r==2 else 0
-		s.water[r]=clampi(roundi(previous[r]*0.55)+inflow+load_by_reach[r]+baseline-(4 if s.policy.get("runoff","")=="buffer" else 0),0,100)
+		s.water[r]=clampi(roundi(previous[r]*0.55)+inflow+load_by_reach[r]-(4 if s.policy.get("runoff","")=="buffer" and r==2 else 0),0,100)
+
+func seasonal_pressure():
+	for i in farms():
+		var c=s.cells[i]
+		var birds=4 if s.policy.has("birds") and c.crop else -3
+		var weeds=7 if s.policy.has("weeds") and Town.covered(s,i,"canal") else -3
+		var disease=8 if has_blight(i) else -4
+		c.birds=clampi(c.birds+birds-(3 if s.policy.get("birds","")=="watch" or c.patrol>=s.turn else 0),0,100)
+		c.weeds=clampi(c.weeds+weeds-(5 if s.policy.get("weeds","")=="clear" or c.rotation else 0),0,100)
+		c.disease=clampi(c.disease+disease-(5 if c.rotation or c.patrol>=s.turn else 0),0,100)
+
+func _population(served: int):
+	var change=Town.demographics(s,served)
+	s.pop_change=change
+	if change>0:
+		add_worker()
+		note("连续两季粮足、有空床位，一名新居民加入，已可派工。")
+	elif change<0:
+		var index=s.workers.size()-1
+		for i in range(index,-1,-1):
+			if s.workers[i].job=="": index=i;break
+		s.workers.remove_at(index)
+		note("连续两季口粮不足，一名居民离开。")
+	s.pop=s.workers.size()
 
 func finish_season():
 	var season=int(s.turn)%4
@@ -515,61 +727,89 @@ func finish_season():
 		s.rain=true
 		s.rev+=1
 		note("梅雨已过，梯田与轮作田保留了更多表土。")
+	seasonal_pressure()
 	if season==2: harvest()
 	if season==3: s.winter=true
 	for i in farms():
 		var c=s.cells[i]
 		c.soil=clampi(c.soil+(3 if c.rotation else (-2 if c.crop else 0)),10,96)
 	water_step()
+	for c in s.cells:
+		if c.kind in FACILITIES: c.condition=maxi(0,c.condition-1)
+	for e in s.edges.values():
+		if e.built: e.condition=maxi(0,e.condition-(5 if s.flood_at==s.turn else 1))
+	var need=s.pop
 	var rations=mini(s.food,s.pop)
 	s.food-=rations
 	s.ledger.eat=rations
-	s.full=s.full+1 if rations==s.pop else 0
+	s.full=s.full+1 if rations==need else 0
 	s.empty=s.empty+1 if rations==0 else 0
+	s.ledger.spoil=maxi(0,s.food-Town.storage(s))
+	s.food-=s.ledger.spoil
+	_population(rations)
+	s.ledger.ending=s.food+s.seed
 	s.last_ledger=s.ledger.duplicate()
-	s.last_report="%s　采集 +%d　秋收 +%d　发粮 %d/%d" % [date(),s.ledger.gather,s.ledger.crop,rations,s.pop]
-	s.ledger=book()
+	s.last_report="%s　采集 +%d　秋收 +%d　发粮 %d/%d　人口 %+d" % [date(),s.ledger.gather,s.ledger.crop,rations,need,s.pop_change]
+	s.ledger=book(s.food+s.seed)
 	s.clock=0
 	s.turn+=1
 	s.age+=1
 	for i in WILD:
 		s.cells[i].picked=0
 		s.cells[i].wildwork=0
-	s.science+=2
-	if s.empty>=2:
+	if s.pop==0 or s.empty>=2 or s.organization==0:
 		s.outcome="lost"
-		note("连续两季完全断粮，聚落离开了江岸。")
+		s.end_reason="聚落人口降至零。" if s.pop==0 else ("连续两季完全断粮。" if s.empty>=2 else "组织度降至零，聚落解体。")
+		note(s.end_reason)
 		return
-	if chapter_complete():
-		if s.era==3:
-			s.outcome="won"
-			note("疫后秋收归仓，河谷建立了可持续的现代农业。")
-			return
+	if s.turn%4==1:
+		var plots=farms()
+		var target=HOME if plots.is_empty() else plots[0]
+		if s.era==1 and s.flood_at<0:
+			for id in plots:
+				if V.tier(id)==0: target=id;break
+			queue_warning("flood",target,"本年夏汛到来，上游水位预报超过警戒线")
+		if s.era==2 and not s.rain:
+			for id in plots:
+				if V.tier(id)>0: target=id;break
+			queue_warning("rain",target,"夏季梅雨带进入河谷，坡田将遭冲刷")
+	next_warning()
+
+func advance_reason() -> String:
+	if s.outcome!="": return "战役已结束"
+	if s.pending!="": return "请先处理农情急报"
+	var groups=Town.requirements(self)
+	for group in groups:
+		for item in groups[group]:
+			if not item[0]: return "尚需"+item[1]
+	if s.food<Town.ERA_FOOD[s.era]: return "可用口粮不足"
+	return ""
+
+func advance(expected: int) -> String:
+	if expected!=s.era: return "时代已经改变"
+	var why=advance_reason()
+	if why!="": return why
+	var fee=Town.ERA_FOOD[s.era]
+	s.food-=fee
+	s.ledger.advance+=fee
+	if s.era==3:
+		s.outcome="won"
+		note("现代秋收归仓，河谷建立了可持续的现代农业。")
+	else:
 		s.era+=1
 		s.age=0
 		s.full=0
-		if s.era==3: s.water=[12,17,24]
-		note("进入"+ERAS[s.era]+"时代。")
-	match s.era:
-		1:
-			if s.age>=1 and not s.policy.has("flood"): s.pending="flood"
-		2:
-			if s.age>=1 and not s.policy.has("rain"): s.pending="rain"
-		3:
-			if s.age>=1 and not s.policy.has("runoff"): s.pending="runoff"
-			elif s.age>=2 and not s.policy.has("blight"): s.pending="blight"
-
-func chapter_complete() -> bool:
-	match s.era:
-		0: return s.first_crop and s.winter and s.seed>=2
-		1: return s.flood_at>=0 and s.flood_time==0 and s.resown and s.full>=1
-		2: return s.rain and (tagged("terrace") or tagged("rotation")) and mean_soil()>=54 and s.full>=2
-		3: return (has_build("station") or tagged("precise")) and s.after_blight and s.water[2]<=23 and s.full>=2 and s.seed>=maxi(2,farms().size()*2)
-	return false
+		note("聚落拨付 %d 份口粮，进入%s时代。" % [fee,ERAS[s.era]])
+	s.rev+=1
+	return ""
 
 func goals() -> Array:
-	match s.era:
-		0: return [[s.first_crop,"完成第一次稻谷秋收"],[s.winter,"度过一个冬季"],[s.seed>=2,"种仓保有 2 份良种"]]
-		1: return [[s.flood_at>=0 and s.flood_time==0,"经历洪峰并等到退水"],[s.resown,"洪后重新播种一块田"],[s.full>=1,"本季足额供粮"]]
-		2: return [[s.rain,"经过一次梅雨冲刷"],[tagged("terrace") or tagged("rotation"),"有一块梯田或轮作田"],[mean_soil()>=54,"平均地力 %d / 54" % mean_soil()],[s.full>=2,"连续足额供粮 %d / 2 季" % mini(2,s.full)]]
-		_: return [[has_build("station") or tagged("precise"),"农机或精准配肥已投产"],[s.after_blight,"完成一次疫后秋收"],[s.water[2]<=23,"下游污染 %d / 上限 23" % s.water[2]],[s.full>=2 and s.seed>=maxi(2,farms().size()*2),"连续两季吃饱，留足下季种粮"]]
+	var summary=[]
+	var groups=Town.requirements(self)
+	for group in groups:
+		var count=0
+		for item in groups[group]:
+			if item[0]: count+=1
+		summary.append([count==groups[group].size(),"%s条件　%d / %d" % [group,count,groups[group].size()]])
+	if s.era<3: summary.append([s.food>=Town.ERA_FOOD[s.era],"晋阶口粮　%d / %d" % [s.food,Town.ERA_FOOD[s.era]]])
+	return summary

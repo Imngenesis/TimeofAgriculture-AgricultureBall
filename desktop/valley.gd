@@ -48,6 +48,12 @@ static func nb(id: int, d: int) -> int:
 static func edge_key(a: int, b: int) -> String:
 	return "%d-%d" % [mini(a,b), maxi(a,b)]
 
+static func distance(a: int,b: int) -> int:
+	var ra=floori(float(a)/COLS)
+	var rb=floori(float(b)/COLS)
+	var dq=(a%COLS-floori(ra/2.0))-(b%COLS-floori(rb/2.0))
+	return maxi(absi(dq),maxi(absi(ra-rb),absi(dq+ra-rb)))
+
 static func tier(id: int) -> int:
 	var p = center(id)
 	var d = absf(p.x - river(p.y))

@@ -247,6 +247,29 @@ static func site(g,id: int,c: Dictionary,season: int,sick: bool):
 			g.beam(post,post+Vector3.UP*0.65,0.034,0.025,WOOD)
 			g.box(post+Vector3(0,0.54,0),Vector3(0.29,0.14,0.055),REED,0.2)
 		"farm": field(g,id,c,season,sick)
+		"academy":
+			house(g,p+Vector3(-0.26,0,-0.18),1.10,0.13)
+			g.box(p+Vector3(0.55,0.27,0.50),Vector3(0.64,0.08,0.38),REED)
+			for dx in [0.32,0.79]:
+				g.beam(p+Vector3(dx,-0.1,0.5),p+Vector3(dx,0.28,0.5),0.037,0.032,WOOD)
+			g.box(p+Vector3(0.54,0.33,0.5),Vector3(0.25,0.035,0.2),Color("#d4c797"))
+			g.beam(p+Vector3(0.66,0,-0.40),p+Vector3(0.66,1.36,-0.40),0.035,0.025,WOOD)
+			g.box(p+Vector3(0.86,1.15,-0.40),Vector3(0.42,0.26,0.035),Color("#657c70"))
+		"house":
+			house(g,p,1.1,-0.22)
+			g.beam(p+Vector3(-0.65,0.0,0.53),p+Vector3(-0.65,0.52,0.53),0.03,0.03,WOOD)
+			g.box(p+Vector3(-0.36,0.41,0.54),Vector3(0.45,0.19,0.04),Color("#ab8467"))
+		"canal":
+			g.box(p+Vector3.UP*0.07,Vector3(0.62,0.14,1.64),STONE)
+			g.box(p+Vector3.UP*0.15,Vector3(0.40,0.03,1.68),Color("#609286"))
+			for dx in [-0.30,0.30]:
+				g.beam(p+Vector3(dx,0,-0.12),p+Vector3(dx,0.75,-0.12),0.054,0.038,WOOD)
+			g.box(p+Vector3(0,0.41,-0.12),Vector3(0.75,0.35,0.12),WOOD.lightened(0.18))
+		"nursery":
+			for j in 3:
+				var q=p+Vector3(j*0.43-0.44,0.10,0)
+				g.box(q,Vector3(0.34,0.14,1.14),WOOD)
+				for k in 5: tuft(g,q+Vector3(0,0.10,k*0.20-0.4),0.24,Color("#91a655"),rng)
 		"store":
 			house(g,p,1.32,-0.22,true)
 			for j in 3:
@@ -260,6 +283,10 @@ static func site(g,id: int,c: Dictionary,season: int,sick: bool):
 			for xx in [-0.18,0.20]:
 				for zz in [-0.15,0.15]:
 					g.oval(q+Vector3(xx,-0.07,zz),Vector3(0.12,0.12,0.055),Color("#484a3c"),0,7,3)
+	if c.get("level",1)==2 and c.kind not in ["","wild","camp"]:
+		if c.kind=="farm":
+			g.beam(p+Vector3(-0.90,0.12,-0.86),p+Vector3(0.91,0.12,-0.86),0.055,0.048,REED)
+		else: house(g,V.v3(xy+Vector2(-0.62,0.59)),0.57,0.45,true)
 	if c.project!="":
 		for a in [-0.66,0.66]:
 			for b in [-0.62,0.62]:
