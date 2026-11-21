@@ -2,6 +2,7 @@ extends RefCounted
 
 const V = preload("res://valley.gd")
 const Town = preload("res://settlement.gd")
+const E = preload("res://economy.gd")
 const SEASONS = ["春","夏","秋","冬"]
 const ERAS = ["原始采集","早期农耕","传统农耕","工业与现代农业"]
 const CHAPTERS = ["在江边扎根","与洪水争田","留住坡上的土","让河水重归清澈"]
@@ -58,31 +59,37 @@ var events: Array = []
 func _init():
 	reset()
 
-func reset():
+func new_cell(id: int) -> Dictionary:
+	var kind="camp" if id==HOME else ("wild" if WILD.has(id) else E.DEPOSITS.get(id,""))
+	return {"kind":kind,"project":"","done":0,"soil":65+(id*7)%12,
+		"crop":false,"care":0,"last":0,"harvests":0,"terrace":false,"rotation":false,
+		"precise":false,"ditch":false,"patrol":-1,"compost":-1,"wildwork":0,"picked":0,"flood":false}
+
+func reset(difficulty: int=1):
+	var profile=E.DIFFICULTIES[difficulty]
 	var cells = []
 	for id in V.COLS*V.ROWS:
-		var kind = "camp" if id == HOME else ("wild" if WILD.has(id) else "")
-		cells.append({"kind":kind,"project":"","done":0,"soil":65 + (id*7)%12,
-			"crop":false,"care":0,"last":0,"harvests":0,"terrace":false,"rotation":false,
-			"precise":false,"ditch":false,"patrol":-1,"compost":-1,"wildwork":0,"picked":0,"flood":false})
-	s = {"version":2,"turn":0,"clock":0,"time":0,"era":0,"age":0,"food":30,"seed":0,
+		cells.append(new_cell(id))
+	s = {"version":3,"turn":0,"clock":0,"time":0,"era":0,"age":0,"food":profile.food,"seed":0,
+		"difficulty":difficulty,"wood":profile.wood,"stone":profile.stone,"budget":1,"efficiency":100,"districts":[0],"history":[],
 		"pop":10,"science":0,"tech":[],"study":"","study_time":0,"cells":cells,"edges":{},
 		"workers":[],"water":[0,0,0],"full":0,"empty":0,"pending":"","policy":{},
 		"flood_at":-1,"flood_time":0,"flood_cells":[],"evacuated":0,"rescued":0,"lost":0,
 		"winter":false,"first_crop":false,"resown":false,"rain":false,"after_blight":false,
 		"blight_at":-1,"sick":false,"outcome":"","log":[],"last_report":"","rev":0,
-		"ledger":book(30),"last_ledger":{}}
+		"ledger":book(profile.food,profile.wood,profile.stone),"last_ledger":{}}
 	_extend_state()
 	for i in 10:
 		add_worker()
 	events.clear()
-	note("十人在江边扎营，带来了三十份口粮。")
+	note("十人在江边扎营，带来了 %d 份口粮。" % profile.food)
 
-func book(opening: int) -> Dictionary:
-	return {"opening":opening,"gather":0,"crop":0,"refund":0,"build":0,"maintenance":0,"advance":0,"eat":0,"loss":0,"sow":0,"spoil":0,"science":0,"ending":opening}
+func book(opening: int,wood: int=0,stone: int=0) -> Dictionary:
+	return {"opening":opening,"gather":0,"crop":0,"refund":0,"build":0,"maintenance":0,"advance":0,"eat":0,"loss":0,"sow":0,"spoil":0,"science":0,"ending":opening,
+		"recruit":0,"hires":0,"operations":0,"due":0,"imports":0,"exports":0,"land":0,"wood_open":wood,"stone_open":stone,"wood_in":0,"stone_in":0,"wood_out":0,"stone_out":0}
 
 func _extend_state():
-	s.merge({"happiness":62,"organization":65,"shortage":0,"growth":0,"last_need":0,"last_served":0,"pop_change":0,
+	s.merge({"happiness":62,"organization":65,"shortage":0,"last_need":0,"last_served":0,"pop_change":0,
 		"modern_harvest":false,"cause":{},"warnings":[],"end_reason":""})
 	for c in s.cells:
 		c.merge({"level":1,"condition":100,"notes":0,"lesson":0,"fertilized":false,"pollution":0,"sown_pollution":0,"birds":0,"weeds":0,"disease":0})
@@ -99,11 +106,45 @@ func restore(state: Dictionary):
 		s.modern_harvest=s.era==3 and s.after_blight
 		if s.outcome=="lost": s.end_reason="连续两季完全断粮。"
 		s.version=2
+	if s.version==2:
+		var profile=E.DIFFICULTIES[1]
+		s.merge({"difficulty":1,"wood":profile.wood,"stone":profile.stone,"budget":1,"efficiency":100,"districts":[0],"history":[]})
+		for id in range(s.cells.size(),V.COLS*V.ROWS): s.cells.append(new_cell(id))
+		for id in E.DEPOSITS:
+			if s.cells[id].kind=="" and s.cells[id].project=="": s.cells[id].kind=E.DEPOSITS[id]
+		_extend_state()
+		s.ledger.merge(book(s.food+s.seed,s.wood,s.stone))
+		# Version-one migration may already have supplied these fields via book().
+		s.ledger.wood_open=s.wood
+		s.ledger.stone_open=s.stone
+		if not s.last_ledger.is_empty():
+			for key in ["recruit","hires","operations","due","imports","exports","land","wood_in","wood_out","stone_in","stone_out"]:
+				if not s.last_ledger.has(key): s.last_ledger[key]=0
+			s.history.append([s.turn-1]+E.flows(s.last_ledger))
+		s.erase("growth")
+		s.version=3
 	events.clear()
 
 func add_worker():
 	var base=rest_position(s.workers.size())
 	s.workers.append({"job":"","from":base,"to":base,"path":[base,base],"length":0.0,"travel":0,"duration":1})
+
+func recruit_reason() -> String:
+	if s.pop>=Town.beds(s): return "床位已满，先建设或扩建农舍"
+	if s.food<E.HIRE_FOOD or s.wood<E.HIRE_WOOD: return "招募需要 %d 口粮、%d 木料" % [E.HIRE_FOOD,E.HIRE_WOOD]
+	return ""
+
+func recruit() -> String:
+	var why=recruit_reason()
+	if why!="": return why
+	s.food-=E.HIRE_FOOD
+	E.supply(s,"wood",-E.HIRE_WOOD)
+	s.ledger.recruit+=E.HIRE_FOOD
+	s.ledger.hires+=1
+	add_worker()
+	s.pop=s.workers.size()
+	note("新招募的居民已到营地，可立即派工。")
+	return ""
 
 func rest_position(i: int) -> Vector2:
 	var a = i*2.4
@@ -161,6 +202,7 @@ func location_name(id: int) -> String:
 		"wild": return "野粮采集地"
 		"farm": return "等高梯田" if c.terrace else ("稻豆轮作田" if c.rotation else "稻田")
 	if BUILD.has(c.kind): return BUILD[c.kind][0]
+	if E.DEPOTS.has(c.kind): return E.DEPOTS[c.kind]
 	return LAND[V.tier(id)]
 
 func research_reason(id: String) -> String:
@@ -233,6 +275,7 @@ func protected_by(id: int,d: int) -> Array:
 func build_reason(kind: String,id: int,d: int=0) -> String:
 	if not BUILD.has(kind) or id<0 or id>=s.cells.size(): return "请选择地图内地块"
 	var def=BUILD[kind]
+	if not s.districts.has(V.sector(id)): return "请先在地块面板开通此区域"
 	if def[1]!="" and not s.tech.has(def[1]): return "先研习「"+TECH[def[1]][0]+"」"
 	if V.tier(id)<0: return "河道内不能施工"
 	var c=s.cells[id]
@@ -255,21 +298,25 @@ func build_reason(kind: String,id: int,d: int=0) -> String:
 	if kind=="academy" and academy_id()>=0: return "河谷已有农专，可前往派工或扩建"
 	if kind=="canal" and V.tier(id)!=0: return "渠首须设在临河低地"
 	if s.food<def[2]: return "口粮不足，需 %d 份" % def[2]
-	return ""
+	return E.inputs_reason(s,E.MATERIALS[kind])
 
 func construct(kind: String,id: int,d: int=0) -> String:
 	var why=build_reason(kind,id,d)
 	if why!="": return why
 	s.food-=BUILD[kind][2]
+	var inputs=E.MATERIALS[kind]
+	E.supply(s,"wood",-inputs[0])
+	E.supply(s,"stone",-inputs[1])
 	if kind=="repair": s.ledger.maintenance+=BUILD[kind][2]
 	else: s.ledger.build+=BUILD[kind][2]
 	var job="t"+str(id)
 	if kind=="levee":
 		var key=edge_for(id,d)
-		s.edges[key]={"a":id,"dir":d,"built":false,"done":0,"condition":100,"repairing":false}
+		s.edges[key]={"a":id,"dir":d,"built":false,"done":0,"condition":100,"repairing":false,"inputs":inputs}
 		job="e"+key
 	else:
 		s.cells[id].project=kind
+		s.cells[id].inputs=inputs
 		s.cells[id].done=0
 	if free_workers()>0 and assigned(job)==0: assign(job,1)
 	s.rev+=1
@@ -281,7 +328,12 @@ func repair_edge(key: String) -> String:
 	var e=s.edges[key]
 	if not e.built or e.repairing or e.condition>=100: return "此段田堤暂时无需检修"
 	if s.food<BUILD.repair[2]: return "检修需要两份口粮"
+	var inputs=E.MATERIALS.repair
+	var why=E.inputs_reason(s,inputs)
+	if why!="": return why
 	s.food-=BUILD.repair[2]
+	E.supply(s,"wood",-inputs[0])
+	e.inputs=inputs
 	s.ledger.maintenance+=BUILD.repair[2]
 	e.done=0
 	e.repairing=true
@@ -295,12 +347,17 @@ func project_refund(kind: String,completed: int) -> int:
 
 func cancel_project(job: String) -> String:
 	var refund=0
+	var inputs=[]
+	var remaining=0.0
 	if job.begins_with("e"):
 		var key=job.substr(1)
 		if not s.edges.has(key): return "工地已结束"
 		var e=s.edges[key]
 		if e.built and not e.repairing: return "田堤已经合拢"
 		refund=project_refund("repair" if e.repairing else "levee",e.done)
+		remaining=1.0-float(e.done)/BUILD["repair" if e.repairing else "levee"][3]
+		inputs=e.get("inputs",[])
+		e.erase("inputs")
 		release_job(job)
 		if e.repairing: e.repairing=false;e.done=BUILD.levee[3]
 		else: s.edges.erase(key)
@@ -310,11 +367,17 @@ func cancel_project(job: String) -> String:
 		var c=s.cells[id]
 		if c.project=="": return "工地已结束"
 		refund=project_refund(c.project,c.done)
+		remaining=1.0-float(c.done)/BUILD[c.project][3]
+		inputs=c.get("inputs",[])
+		c.erase("inputs")
 		c.project=""
 		c.done=0
 		while assigned(job)>capacity(job): assign(job,-1)
 	else: return "找不到工地"
 	s.food+=refund
+	if inputs.size()==2:
+		E.supply(s,"wood",floori(inputs[0]*remaining))
+		E.supply(s,"stone",floori(inputs[1]*remaining))
 	s.ledger.refund+=refund
 	s.rev+=1
 	note("撤回工程，未用工粮 %d 份归仓。" % refund)
@@ -342,7 +405,10 @@ func capacity(job: String) -> int:
 	var id=int(job.substr(1))
 	if id<0 or id>=s.cells.size(): return 0
 	var c=s.cells[id]
+	if not s.districts.has(V.sector(id)) or c.flood: return 0
 	if c.project!="" or c.kind in ["wild","farm"]: return 4
+	if E.DEPOTS.has(c.kind): return 3
+	if c.kind in Town.OPERATORS: return 1
 	if c.kind=="academy": return 2 if c.level==1 else 4
 	if id==HOME and s.policy.get("flood","")=="move" and s.flood_at<0: return 2
 	return 0
@@ -379,26 +445,67 @@ func dispatch(i: int,job: String):
 	w.duration=maxi(1,ceili(w.length/1.8))
 	w.travel=w.duration
 
-func assign(job: String,delta: int) -> String:
-	if delta>0:
-		if capacity(job)<=assigned(job): return "此岗位已满或无需派人"
-		if free_workers()==0: return "没有闲人，请先从其他岗位调回"
-		var best=-1
-		var nearest=INF
-		for i in s.workers.size():
-			if s.workers[i].job!="": continue
-			var dist=worker_point(i).distance_squared_to(job_point(job,i))
-			if dist<nearest:
-				nearest=dist
-				best=i
-		dispatch(best,job)
-	else:
-		for i in range(s.workers.size()-1,-1,-1):
-			if s.workers[i].job==job:
-				dispatch(i,"")
-				return ""
-		return "此处还没有人手"
+func transfer(source: String,target: String) -> String:
+	if target==source or (target!="" and capacity(target)<=assigned(target)): return "此岗位已满或无需派人"
+	var nearest=INF
+	var best=-1
+	for i in s.workers.size():
+		if s.workers[i].job!=source: continue
+		var distance=worker_point(i).distance_squared_to(job_point(target,i))
+		if distance<nearest: nearest=distance;best=i
+	if best<0: return "没有可调人手"
+	dispatch(best,target)
 	return ""
+
+func assign(job: String,delta: int) -> String:
+	return transfer("",job) if delta>0 else transfer(job,"")
+
+func job_tile(job: String) -> int:
+	return s.edges[job.substr(1)].a if job.begins_with("e") else int(job.substr(1))
+
+func jobs() -> Array:
+	var result=[]
+	for i in s.cells.size():
+		if s.cells[i].kind=="" and s.cells[i].project=="": continue
+		var job="t"+str(i)
+		if capacity(job)>0 or assigned(job)>0: result.append(job)
+	for k in s.edges:
+		if capacity("e"+k)>0: result.append("e"+k)
+	return result
+
+func minimum_staff(job: String) -> int:
+	if capacity(job)==0: return 0
+	if job.begins_with("e"): return 1
+	var c=s.cells[job_tile(job)]
+	if c.kind=="camp": return 2
+	if c.project!="": return 1
+	if not Town.working(c): return 0
+	if c.kind=="farm": return 1 if s.turn%4!=3 else 0
+	if c.kind=="academy" or c.kind in Town.OPERATORS: return 1
+	return 0
+
+func vacancies() -> Array:
+	var missing=[]
+	for job in jobs():
+		if assigned(job)<minimum_staff(job): missing.append(job)
+	missing.sort_custom(func(a,b): return dispatch_priority(a)<dispatch_priority(b))
+	return missing
+
+func dispatch_priority(job: String) -> int:
+	var site=s.cells[job_tile(job)]
+	if job.begins_with("e"):
+		return 0 if s.policy.has("flood") and s.flood_at<0 else 2
+	if site.kind=="camp" or (site.project=="terrace" and s.policy.has("rain") and not s.rain): return 0
+	if site.kind=="farm" and site.project=="": return 1
+	return 2 if site.project!="" else 3
+
+func fill_vacancies() -> int:
+	var count=0
+	for job in vacancies():
+		while assigned(job)<minimum_staff(job) and free_workers()>0:
+			if assign(job,1)!="": break
+			count+=1
+	return count
 
 func release_job(job: String):
 	for i in s.workers.size():
@@ -510,7 +617,8 @@ func _finish_site(id: int):
 		if kind=="terrace": c.soil=mini(96,c.soil+10)
 	else:
 		c.kind=kind
-	if not c.kind in ["farm","academy"]: release_job("t"+str(id))
+	c.erase("inputs")
+	if not (c.kind in ["farm","academy"] or c.kind in Town.OPERATORS): release_job("t"+str(id))
 	while assigned("t"+str(id))>capacity("t"+str(id)): assign("t"+str(id),-1)
 	s.rev+=1
 	note(V.address(id)+"的"+BUILD[kind][0]+"已完工。")
@@ -524,6 +632,7 @@ func work():
 	var season=int(s.turn)%4
 	for i in s.cells.size():
 		var c=s.cells[i]
+		if c.kind=="" and c.project=="": continue
 		var hands=assigned("t"+str(i),true)
 		if hands==0 or c.flood: continue
 		if c.project!="":
@@ -543,6 +652,12 @@ func work():
 					c.lesson-=Town.LESSON
 					c.notes+=1
 					s.ledger.science+=1
+		elif E.DEPOTS.has(c.kind):
+			var cost=E.extraction_time(c.kind,i)
+			c.wildwork+=hands
+			while c.wildwork>=cost:
+				c.wildwork-=cost
+				E.supply(s,c.kind,1)
 		elif c.kind=="wild":
 			if c.picked>=forage_limit(): continue
 			c.wildwork+=hands
@@ -570,6 +685,7 @@ func work():
 			e.done+=assigned("e"+k,true)
 			if e.done>=BUILD.repair[3]:
 				e.repairing=false
+				e.erase("inputs")
 				e.condition=100
 				release_job("e"+k)
 				s.rev+=1
@@ -578,6 +694,7 @@ func work():
 		e.done+=assigned("e"+k,true)*(2 if s.policy.get("flood","")=="dike" and s.flood_at<0 else 1)
 		if e.done>=BUILD.levee[3]:
 			e.built=true
+			e.erase("inputs")
 			release_job("e"+k)
 			s.rev+=1
 			note(V.address(e.a)+"的田堤合拢。")
@@ -633,7 +750,8 @@ func hit_flood():
 func expected_yield(id: int) -> int:
 	var c=s.cells[id]
 	if c.kind!="farm" or c.flood: return 0
-	var gross=8+floori(c.care/10.0)+floori(c.soil/10.0)+4*(c.level-1)
+	var gross=8+E.ERA_YIELD[s.era]+floori(c.care/10.0)+floori(c.soil/10.0)+4*(c.level-1)
+	if V.sector(id)==3 and V.tier(id)==0: gross+=5
 	if Town.covered(s,id,"station"): gross+=5
 	if Town.covered(s,id,"canal"): gross+=3
 	if Town.covered(s,id,"nursery"): gross+=4
@@ -643,7 +761,8 @@ func expected_yield(id: int) -> int:
 	var pest_factor=1.0-minf(0.48,(c.birds+c.weeds+c.disease)/330.0)
 	if has_blight(id):
 		pest_factor*=0.90 if c.patrol>=s.turn else (0.70 if s.policy.get("blight","")=="inspect" else 0.53)
-	return maxi(1,roundi(gross*land_factor*pest_factor*(1.0 if c.condition>=Town.WORKING_CONDITION else 0.6)))
+	var economy_factor=s.efficiency*E.DIFFICULTIES[s.difficulty].yield_pct/10000.0
+	return maxi(1,roundi(gross*land_factor*pest_factor*economy_factor*(1.0 if c.condition>=Town.WORKING_CONDITION else 0.6)))
 
 func has_blight(id: int) -> bool:
 	return s.sick and (not s.cause.has("blight") or s.cause.blight.tile==id or Town.covered(s,id,"nursery"))
@@ -704,11 +823,8 @@ func seasonal_pressure():
 
 func _population(served: int):
 	var change=Town.demographics(s,served)
-	s.pop_change=change
-	if change>0:
-		add_worker()
-		note("连续两季粮足、有空床位，一名新居民加入，已可派工。")
-	elif change<0:
+	s.pop_change=s.ledger.hires+change
+	if change<0:
 		var index=s.workers.size()-1
 		for i in range(index,-1,-1):
 			if s.workers[i].job=="": index=i;break
@@ -744,13 +860,16 @@ func finish_season():
 	s.ledger.eat=rations
 	s.full=s.full+1 if rations==need else 0
 	s.empty=s.empty+1 if rations==0 else 0
+	_population(rations)
+	E.settle(s)
 	s.ledger.spoil=maxi(0,s.food-Town.storage(s))
 	s.food-=s.ledger.spoil
-	_population(rations)
 	s.ledger.ending=s.food+s.seed
+	s.history.append([s.turn]+E.flows(s.ledger))
+	if s.history.size()>8: s.history.pop_front()
 	s.last_ledger=s.ledger.duplicate()
 	s.last_report="%s　采集 +%d　秋收 +%d　发粮 %d/%d　人口 %+d" % [date(),s.ledger.gather,s.ledger.crop,rations,need,s.pop_change]
-	s.ledger=book(s.food+s.seed)
+	s.ledger=book(s.food+s.seed,s.wood,s.stone)
 	s.clock=0
 	s.turn+=1
 	s.age+=1

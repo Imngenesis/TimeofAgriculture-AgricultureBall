@@ -12,6 +12,7 @@ var upland=-1
 var messages=[]
 var picture=true
 var results=[]
+var difficulty=1
 
 func check(condition: bool,description: String) -> bool:
 	if failed: return false
@@ -39,6 +40,20 @@ func capture(label_text: String):
 	check(image!=null and image.save_png(folder.path_join(label_text+".png"))==OK,"screenshot "+label_text)
 	if label_text=="02-river-valley" and image:
 		image.save_jpg(folder.path_join("river-valley.jpg"),0.88)
+	if label_text in ["12-harvest-detail","11-modern-valley"] and image:
+		image.save_jpg(folder.path_join(label_text+".jpg"),0.93)
+
+func zoom_view(button: MouseButton,count: int):
+	var viewport=get_viewport()
+	var position=viewport.get_visible_rect().size*Vector2(0.53,0.48)
+	for n in count:
+		var event=InputEventMouseButton.new()
+		event.button_index=button
+		event.position=position
+		event.global_position=position
+		event.pressed=true
+		viewport.push_input(event,true)
+	await frames(34)
 
 func click(pos: Vector2):
 	var vp=get_viewport()
@@ -83,8 +98,12 @@ func ticks(count: int):
 		game.sim_step()
 		if sim.s.turn!=prior_turn:
 			var b=sim.s.last_ledger
-			var spent=b.build+b.maintenance+b.advance+b.eat+b.loss+b.sow+b.spoil
-			if not check(b.opening+b.gather+b.crop+b.refund-spent==b.ending,"seasonal food ledger reconciles"): return
+			var spent=b.build+b.maintenance+b.advance+b.eat+b.loss+b.sow+b.spoil+b.operations+b.imports+b.recruit+b.land
+			if not check(b.opening+b.gather+b.crop+b.refund+b.exports-spent==b.ending,"seasonal food ledger reconciles"): return
+			var recent=sim.s.history
+			if not check(recent.size()==mini(sim.s.turn,8) and recent.back()==[sim.s.turn-1,b.gather+b.crop+b.refund+b.exports,spent],"eight-season chart matches settled accounts"): return
+			for k in ["wood","stone"]:
+				if not check(b[k+"_open"]+b[k+"_in"]-b[k+"_out"]==sim.s[k],"seasonal "+k+" ledger reconciles"): return
 			if not check(sim.s.pop==sim.s.workers.size(),"population matches available worker records"): return
 		while sim.s.pending in ["birds","weeds","rain","blight"] and not failed:
 			var event=sim.s.pending
@@ -106,6 +125,14 @@ func choose_cell(id: int):
 	await frames(2)
 
 func build(kind: String,id: int):
+	var inputs=S.E.MATERIALS[kind]
+	if sim.s.wood<inputs[0] or sim.s.stone<inputs[1]:
+		await tap("panel","economy")
+		await tap("economy_tab","market")
+		for k in ["wood","stone"]:
+			var need=inputs[0 if k=="wood" else 1]
+			while sim.s[k]<need and not failed: await tap("trade",[k,true])
+		await tap("closepanel")
 	await tap("panel","build")
 	await tap("tool",kind)
 	await choose_cell(id)
@@ -116,6 +143,14 @@ func visit(id: int):
 	await tap("jump",id)
 
 func finish_site(id: int):
+	var job="t"+str(id)
+	if sim.s.cells[id].project!="" and sim.assigned(job)==0:
+		await tap("panel","crew")
+		if sim.free_workers()>0: await tap("fill")
+		if sim.assigned(job)==0:
+			await tap("transfer_to",job)
+			await tap("transfer_from","t"+str(S.WILD[1]))
+		await tap("closepanel")
 	for i in 85:
 		if failed or sim.s.cells[id].project=="": break
 		await ticks(1)
@@ -178,6 +213,8 @@ func pay_to_advance(era: int):
 
 func first_seasons():
 	await tap("new")
+	await capture("08-difficulty")
+	await tap("difficulty",difficulty)
 	if game.dialog_key=="restart": await tap("confirmed_new")
 	if not check(game.playing and sim.s.science==0 and game.world.selected==S.WILD[0],"new camp starts with zero technology points"): return
 	for i in 3: await tap("assign",["t"+str(S.WILD[0]),1])
@@ -189,6 +226,8 @@ func first_seasons():
 	await tap("panel","crew")
 	for i in 3: await tap("reserve",false)
 	await tap("closepanel")
+	await visit(18)
+	await tap("assign",["t18",1])
 	var food_before=sim.s.food
 	var free_before=sim.free_workers()
 	await build("house",46)
@@ -224,8 +263,28 @@ func first_seasons():
 	await tap("pausemenu");await tap("settings");await tap("sound");await tap("sound");await tap("back");await tap("back")
 	await tap("forecast")
 	await capture("02-river-valley")
+	await tap("deselect");await tap("fold_goals")
+	await zoom_view(MOUSE_BUTTON_WHEEL_UP,6)
+	check(game.world.target_zoom<11,"wheel zoom reaches individual fields")
+	await capture("12-harvest-detail")
+	await zoom_view(MOUSE_BUTTON_WHEEL_DOWN,6)
+	await tap("fold_goals")
 	await wait_ready()
-	if not check(sim.s.era==0 and sim.s.pop>10,"fed settlement grows with completed housing"): return
+	if not check(sim.s.era==0 and sim.s.pop==10,"full rations and housing do not create residents"): return
+	await tap("panel","crew")
+	var food=sim.s.food
+	var wood=sim.s.wood
+	await tap("recruit");await tap("recruit")
+	if not check(sim.s.pop==12 and sim.s.food==food-12 and sim.s.wood==wood-4,"two deliberate hires cost food and timber"): return
+	await tap("assign",["t35",1])
+	await capture("09-workforce")
+	await tap("closepanel")
+	await tap("panel","economy");await tap("budget",0);await tap("budget",1);await capture("10-budget")
+	await tap("economy_tab","market")
+	var stock=sim.s.stone
+	await tap("trade",["stone",true]);await tap("trade",["stone",false])
+	check(sim.s.stone==stock,"dock trades are reachable in the resource overview")
+	await tap("economy_tab","history");await capture("13-season-accounts");await tap("closepanel")
 	await ticks(2)
 	await bank_notes()
 	await pay_to_advance(0)
@@ -294,6 +353,15 @@ func route(index: int):
 	else:
 		await build("station",47);await finish_site(47)
 		check(not sim.s.policy.has("blight") and not sim.s.policy.has("weeds"),"low-input route avoids undeployed technologies' hazards")
+		await tap("panel","risk");await tap("overlay","")
+		await visit(47)
+		await zoom_view(MOUSE_BUTTON_WHEEL_UP,5)
+		await capture("11-modern-valley")
+		await tap("assign",["t47",-1])
+		check(game.hud.staff_alerts.has(47) and game.hud.refs.vacancies.visible,"unattended machine station appears in settlement alerts")
+		await tap("staff_alert");await tap("assign",["t47",1])
+		check(not game.hud.staff_alerts.has(47),"assigning a replacement clears the station alert")
+		await tap("closepanel")
 	await pay_to_advance(3)
 	if failed: return
 	report("PASS route %d: %d seasons, population %d, food %d, seeds %d, downstream pollution %d, warnings %s, flooded/rescued/lost %s" % [index+1,sim.s.turn,sim.s.pop,sim.s.food,sim.s.seed,sim.s.water[2],sim.s.policy.keys(),results.back()])
@@ -301,6 +369,8 @@ func route(index: int):
 
 func run(main,out: String):
 	game=main;sim=main.sim;folder=out
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--difficulty-test="): difficulty=int(arg.trim_prefix("--difficulty-test="))
 	picture=DisplayServer.get_name()!="headless"
 	report("Native replay on "+DisplayServer.get_name()+" at "+str(DisplayServer.window_get_size()))
 	await frames(12);await capture("01-title")
@@ -312,11 +382,22 @@ func run(main,out: String):
 	await route(1)
 	if failed: return
 	check(results[0][0]<results[1][0] and results[1][1]>results[0][1] and results[0][2]>results[1][2],"shared checkpoint gives distinct flood and transport outcomes")
-	await tap("title");await tap("new");await tap("confirmed_new")
+	await tap("title");await tap("new");await tap("difficulty",0);await tap("confirmed_new")
+	var chart=game.hud.refs.map
+	var outer=73
+	var position=chart.get_global_rect().position+chart.chart_point(V.center(outer))
+	click(position);await frames()
+	check(game.world.selected==outer and sim.capacity("t73")==0,"unclaimed map sector can be surveyed")
+	await tap("claim",V.sector(outer));await tap("assign",["t73",1])
+	await ticks(20)
+	check(sim.s.districts.has(V.sector(outer)) and sim.s.ledger.wood_in>0,"outer sector is staffed and productive")
+	await tap("panel","crew");await tap("transfer_to","t18");await tap("transfer_from","t73")
+	check(sim.assigned("t18")==1 and sim.assigned("t73")==0,"one worker transfers directly between sites")
+	await tap("closepanel")
 	await ticks(6*S.SEASON_TIME)
 	check(sim.s.outcome=="lost" and sim.s.science==0 and sim.s.pop<10,"shortage reduces population, famine ends game, time grants no knowledge")
 	await tap("retry")
-	check(sim.s.turn==0 and sim.s.food==30 and sim.s.pop==10 and sim.s.outcome=="","chapter retry restores its own household and stocks")
+	check(sim.s.turn==0 and sim.s.food==S.E.DIFFICULTIES[0].food and sim.s.pop==10 and sim.s.outcome=="" and sim.s.districts==[0],"chapter retry restores difficulty, regions and stocks")
 	if failed: return
-	report("PASS comparison, workforce, school collection, paid era gates, causally triggered risks, seasonal ledgers, save/load and famine retry")
+	report("PASS comparison, difficulty %s, recruitment, workforce transfers, service budgets, expanded map, school, paid era gates, causal risks, seasonal ledgers and saves" % S.E.DIFFICULTIES[difficulty].name)
 	game.shutdown(0)

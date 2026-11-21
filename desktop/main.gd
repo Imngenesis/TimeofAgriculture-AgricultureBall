@@ -18,6 +18,8 @@ var acc=0.0
 var edge_job=""
 var dialog_key=""
 var before_dialog=false
+var difficulty=1
+var transfer_target=""
 var drag=false
 var testing=false
 var save_warning=""
@@ -60,8 +62,10 @@ func show_title():
 	hud.menu(not saves.read("campaign").is_empty())
 
 func start_game(restored: Dictionary={}):
-	if restored.is_empty(): sim.reset()
+	if restored.is_empty(): sim.reset(difficulty)
 	else: sim.restore(restored)
+	difficulty=sim.s.difficulty
+	transfer_target=""
 	paused=false;playing=true;speed=1;acc=0;edge_job="";dialog_key=""
 	world.set_menu(false)
 	hud.game_view()
@@ -129,12 +133,15 @@ func place(id: int,direction: int):
 	refresh(true)
 
 func command(cmd: String,arg=null):
-	if cmd not in ["new","confirmed_new","continue","quit","settings","back","sound","fullscreen"] and not playing: return
+	if cmd not in ["new","difficulty","confirmed_new","continue","quit","settings","back","sound","fullscreen"] and not playing: return
 	if playing and sim.s.pending!="" and cmd!="decision": return
 	if playing and sim.s.outcome!="" and cmd not in ["retry","title","quit"]: return
 	var result=""
 	match cmd:
-		"new":
+		"new": modal("difficulty")
+		"difficulty":
+			if dialog_key!="difficulty" or int(arg) not in [0,1,2]: return
+			difficulty=int(arg)
 			if saves.read("campaign").is_empty(): start_game()
 			else: modal("restart")
 		"confirmed_new": start_game()
@@ -171,9 +178,15 @@ func command(cmd: String,arg=null):
 			if dialog_key=="": speed=int(arg);paused=false
 		"panel":
 			world.build_tool="";hud.panel_key="" if hud.panel_key==arg else arg
+			if hud.panel_key=="economy": hud.economy_tab="budget"
+		"economy_tab": hud.economy_tab=arg
 		"closepanel": hud.panel_key=""
+		"staff_alert": hud.panel_key="crew";world.build_tool=""
+		"fold_goals": hud.goals_collapsed=not hud.goals_collapsed
 		"deselect": select(-1)
-		"jump": select(int(arg),true)
+		"jump":
+			world.build_tool=""
+			select(int(arg),true)
 		"edge":
 			select(sim.s.edges[arg].a,true);edge_job="e"+arg
 		"research":
@@ -213,6 +226,28 @@ func command(cmd: String,arg=null):
 			result=sim.reserve(arg)
 			if result=="": hud.notify("口粮 %d · 种粮 %d" % [sim.s.food,sim.s.seed])
 		"assign": result=sim.assign(arg[0],arg[1])
+		"recruit":
+			result=sim.recruit()
+			if result=="": hud.notify("已招募 1 名居民，每季口粮增加 1 份。")
+		"fill": hud.notify("已向缺工岗位派出 %d 人。" % sim.fill_vacancies())
+		"transfer_to":
+			transfer_target=arg
+			hud.panel_key="transfer"
+		"transfer_from":
+			result=sim.transfer(arg,transfer_target)
+			if result=="":
+				hud.notify("已调派 1 人前往"+sim.job_label(transfer_target)+"。")
+				hud.panel_key="crew"
+		"budget":
+			if int(arg) in [0,1,2]:
+				sim.s.budget=int(arg)
+				hud.notify("将在季末按新预算拨粮，供下一季使用。")
+		"trade":
+			result=Model.E.trade(sim.s,arg[0],arg[1])
+			if result=="": hud.notify("码头换货完成，已登记收支。")
+		"claim":
+			result=Model.E.claim(sim.s,int(arg))
+			if result=="": hud.notify(Valley.SECTORS[int(arg)]+"已开放。")
 		"field":
 			result=sim.field_action(arg[0],arg[1])
 			if result=="": hud.notify("农事安排已生效。")

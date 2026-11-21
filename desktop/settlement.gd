@@ -1,6 +1,7 @@
 extends RefCounted
 
 const V=preload("res://valley.gd")
+const OPERATORS=["canal","nursery","station"]
 const WORKING_CONDITION=50
 const CAMP_BEDS=10
 const HOUSE_BEDS=4
@@ -17,7 +18,14 @@ static func facilities(s: Dictionary,kind: String,active: bool=true) -> Array:
 	var found=[]
 	for id in s.cells.size():
 		var c=s.cells[id]
-		if c.kind==kind and (not active or working(c)): found.append(id)
+		if c.kind!=kind: continue
+		if active and not working(c): continue
+		if active and kind in OPERATORS:
+			var staffed=false
+			for worker in s.workers:
+				if worker.job=="t"+str(id) and worker.travel==0: staffed=true;break
+			if not staffed: continue
+		found.append(id)
 	return found
 
 static func total_level(s: Dictionary,kind: String) -> int:
@@ -49,11 +57,6 @@ static func demographics(s: Dictionary,served: int) -> int:
 	var morale=1 if shortage==0 and maintained else (-1 if shortage==0 else -3)
 	s.organization=clampi(s.organization+morale,0,100)
 	s.shortage=s.shortage+1 if shortage>0 else 0
-	var ready=shortage==0 and s.pop<beds(s) and s.food>=s.pop and s.happiness>=55
-	s.growth=s.growth+1 if ready else 0
-	if s.growth>=2:
-		s.growth=0
-		return 1
 	if s.shortage>=2:
 		s.shortage=0
 		return -1

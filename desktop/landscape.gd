@@ -2,6 +2,7 @@ extends RefCounted
 
 const V=preload("res://valley.gd")
 const G=preload("res://geometry.gd")
+const Craft=preload("res://farm_models.gd")
 const WOOD=Color("#604532")
 const REED=Color("#b09a60")
 const STONE=Color("#797866")
@@ -17,9 +18,9 @@ static func _land_color(x: float,z: float) -> Color:
 
 static func terrain():
 	var mesh=G.new()
-	var step=0.53
-	var cols=115
-	var rows=105
+	var step=0.62
+	var cols=189
+	var rows=177
 	var pts=PackedVector3Array()
 	var norms=PackedVector3Array()
 	var shades=PackedColorArray()
@@ -40,8 +41,8 @@ static func terrain():
 static func river_mesh():
 	var g=G.new()
 	var span=0.34
-	for j in 164:
-		var z=-28.0+j*span
+	for j in 324:
+		var z=-55.0+j*span
 		var z2=z+span
 		for lane in 6:
 			var l=-1.0+lane/3.0
@@ -52,30 +53,6 @@ static func river_mesh():
 			var d=Vector3(V.river(z2)+l*(V.breadth(z2)+0.75),0.005,z2)
 			g.quad(a,b,c,d,Color(absf(l)*0.65+0.15,clampf((z+9)/18,0,1),0.65))
 	return g
-
-static func tree(g,p: Vector3,size: float,rng: RandomNumberGenerator,slender: bool):
-	var lean=Vector3(rng.randf_range(-0.16,0.16),0,rng.randf_range(-0.13,0.13))*size
-	var top=p+Vector3.UP*size*0.92+lean
-	var bark=Color("#5b5842") if slender else Color("#655341")
-	g.beam(p-Vector3.UP*0.08,top,0.105*size,0.024*size,bark)
-	var base_color=LEAF[rng.randi_range(0,LEAF.size()-1)]
-	if slender: base_color=base_color.lerp(Color("#85905b"),0.32)
-	for k in (5 if slender else 7):
-		var angle=k*2.4+rng.randf_range(-0.35,0.35)
-		var rise=float(k)/(5 if slender else 7)
-		var offset=Vector3(cos(angle),0,sin(angle))*(0.21 if slender else 0.37)*(1.0-0.55*rise)*size
-		var hub=p+Vector3.UP*size*(0.48+rise*0.65)+lean*rise
-		var tip=hub+offset+Vector3.UP*size*0.22
-		g.beam(hub-Vector3.UP*0.12*size,tip,0.042*size,0.015*size,bark,5)
-		var rad=(0.27 if slender else 0.39)*size*(1.0-0.31*rise)
-		var tint=base_color.lerp(Color("#a3a36a"),rng.randf_range(0,0.19))
-		var extent=Vector3(rad,rad*(1.40 if slender else 0.82),rad*0.90)
-		g.crown(tip,extent,tint,angle)
-		for outer in 6:
-			var twig_dir=Vector3(rng.randf_range(-1,1),rng.randf_range(-0.55,0.9),rng.randf_range(-1,1)).normalized()
-			var outer_tip=tip+twig_dir*extent*0.86
-			var twig_size=rad*rng.randf_range(0.20,0.39)
-			g.oval(outer_tip,Vector3(twig_size,twig_size*1.05,twig_size*0.83),tint.darkened(rng.randf_range(0.02,0.18)),outer*2.15,6,3)
 
 static func tuft(g,p: Vector3,h: float,col: Color,rng: RandomNumberGenerator,heads: bool=false):
 	for i in 5:
@@ -88,12 +65,12 @@ static func tuft(g,p: Vector3,h: float,col: Color,rng: RandomNumberGenerator,hea
 		if heads and i<3:
 			g.beam(tip,tip+bend*0.33+Vector3.UP*h*0.10,h*0.047,h*0.016,Color("#bb9c5a"),4)
 
-static func backdrop():
+static func backdrop(woods: Array):
 	var g=G.new()
 	var rng=RandomNumberGenerator.new()
 	rng.seed=70173
-	for i in 1850:
-		var p=Vector2(rng.randf_range(-26,26),rng.randf_range(-24,24))
+	for i in 3200:
+		var p=Vector2(rng.randf_range(-37,37),rng.randf_range(-31,31))
 		var bank=absf(p.x-V.river(p.y))-V.breadth(p.y)
 		if bank < -0.2: continue
 		var id=V.cell_at(p)
@@ -102,14 +79,19 @@ static func backdrop():
 			if dist<1.10 and bank>0.6: continue
 		var h=rng.randf_range(0.14,0.38)*(1.25 if bank<0.6 else 1.0)
 		tuft(g,V.v3(p),h,Color("#899058") if bank>0.6 else Color("#7f8250"),rng,bank<0.7)
-	for i in 335:
-		var p=Vector2(rng.randf_range(-26,26),rng.randf_range(-26,22))
+	for i in 440:
+		var p=Vector2(rng.randf_range(-37,37),rng.randf_range(-36,30))
 		var id=V.cell_at(p)
 		var bank=absf(p.x-V.river(p.y))-V.breadth(p.y)
 		if bank<0.7: continue
 		if id>=0 and (p.distance_to(V.center(id))<1.08 or i%3!=0): continue
 		if id<0 and sin(p.x*0.38+p.y*0.28)>0.66: continue
-		tree(g,V.v3(p),rng.randf_range(1.0,2.2)*(1.15 if id<0 else 0.72),rng,bank<2.1 or i%7==0)
+		var willow=bank<2.4 or i%8==0
+		var height=rng.randf_range(1.95,3.65)*(1.12 if id<0 else 0.76)
+		var width=height*rng.randf_range(0.82,1.09)*(0.84 if willow else 1.0)
+		woods[1 if willow else 0].append([V.v3(p,-0.08),width,height,rng.randf(),0.5,rng.randf()])
+		if bank>2.4 and i%7==0:
+			g.crown(V.v3(p+Vector2(0.31,0.09),0.14),Vector3(0.30,0.22,0.29),LEAF[i%LEAF.size()],i*1.7)
 	for i in 75:
 		var z=rng.randf_range(-23,22)
 		var side=1.0 if i%2==0 else -1.0
@@ -122,13 +104,6 @@ static func backdrop():
 		for k in rng.randi_range(7,15):
 			var p=base+Vector2(rng.randf_range(-0.35,0.35),rng.randf_range(-0.7,0.7))
 			tuft(g,V.v3(p),rng.randf_range(0.33,0.64),Color("#798853"),rng,k%3==0)
-	# A towpath follows the west bank and remains recognizable at any zoom.
-	for i in 155:
-		var z=-25.0+i*0.31
-		var zz=z+0.31
-		var x=V.river(z)-V.breadth(z)-1.38-0.24*sin(z*0.95)
-		var xx=V.river(zz)-V.breadth(zz)-1.38-0.24*sin(zz*0.95)
-		g.quad(V.v3(Vector2(x-0.13,z),0.018),V.v3(Vector2(x+0.13,z),0.018),V.v3(Vector2(xx+0.13,zz),0.018),V.v3(Vector2(xx-0.13,zz),0.018),Color("#bbab80"))
 	_wharf(g)
 	for z in [-3.5,4.8]:
 		var half=V.breadth(z)+1.75
@@ -164,10 +139,14 @@ static func _wharf(g):
 	for j in 9:
 		g.box(gauge+Vector3(0.03,0.14+j*0.14,0.044),Vector3(0.092 if j%2==0 else 0.057,0.027,0.035),Color("#decda1"))
 
-static func house(g,p: Vector3,scale_by: float,yaw: float,granary: bool=false):
+static func house(g,p: Vector3,scale_by: float,yaw: float,granary: bool=false,era: int=0):
+	if era>=2:
+		Craft.tile_house(g,p,scale_by,yaw,granary)
+		return
 	var x=Vector3(cos(yaw),0,sin(yaw))*scale_by
 	var z=Vector3(-sin(yaw),0,cos(yaw))*scale_by
 	var y=Vector3.UP*scale_by
+	g.finish=2
 	var floor_h=0.36 if granary else 0.08
 	var base=p+y*floor_h
 	for xx in [-0.45,0.45]:
@@ -179,6 +158,7 @@ static func house(g,p: Vector3,scale_by: float,yaw: float,granary: bool=false):
 		var q=base+x*(-0.43+j*0.12)+z*0.343
 		g.beam(q,q+y*0.53,0.012*scale_by,0.012*scale_by,WOOD.lightened(0.13),4)
 	g.box(base+y*0.21+z*0.349,Vector3(0.20,0.42,0.025)*scale_by,Color("#4d4935"),yaw)
+	g.finish=1
 	for side in [-1,1]:
 		var a=base-x*0.61+z*(side*0.48)+y*0.49
 		var b=a+x*1.22
@@ -192,12 +172,24 @@ static func house(g,p: Vector3,scale_by: float,yaw: float,granary: bool=false):
 			var e=a.lerp(b,f)
 			var ridge=d.lerp(c,f)
 			g.beam(e,ridge,0.022*scale_by,0.014*scale_by,REED.darkened(0.05*(k%4)),4)
+	g.finish=2
 	g.beam(base-x*0.66+y*0.92,base+x*0.66+y*0.92,0.045*scale_by,0.045*scale_by,WOOD)
+	var porch=base+z*0.50
+	g.box(porch+y*0.018,Vector3(0.79,0.055,0.29)*scale_by,WOOD.lightened(0.18),yaw)
+	for side in [-1,1]:
+		var pillar=porch+x*side*0.34+z*0.11
+		g.beam(pillar-y*0.32,pillar+y*0.44,0.029*scale_by,0.025*scale_by,WOOD,6)
+		g.beam(pillar+y*0.38,pillar-z*0.23+y*0.53,0.02*scale_by,0.02*scale_by,WOOD,5)
+	g.quad(porch-x*0.43+z*0.17+y*0.41,porch+x*0.43+z*0.17+y*0.41,porch+x*0.43-z*0.17+y*0.53,porch-x*0.43-z*0.17+y*0.53,REED.darkened(0.15))
+	var window=base-x*0.25+z*0.354+y*0.34
+	g.box(window,Vector3(0.19,0.19,0.025)*scale_by,Color("#514c38"),yaw)
+	for j in 3: g.box(window+z*0.017+x*(j-1)*0.051,Vector3(0.016,0.19,0.022)*scale_by,REED,yaw)
+	g.finish=0
 
 static func field(g,id: int,c: Dictionary,season: int,sick: bool):
 	var p=V.center(id)
-	var size=0.82
-	var soil=Color("#675d3d") if not c.crop else Color("#716e4b")
+	var size=0.96
+	var soil=Color("#736244") if not c.crop or season==2 else Color("#647e68")
 	if c.terrace: soil=Color("#7e774b")
 	var local_rng=RandomNumberGenerator.new()
 	local_rng.seed=id*53+20
@@ -210,12 +202,23 @@ static func field(g,id: int,c: Dictionary,season: int,sick: bool):
 			var b=V.v3(p+Vector2(x+size*2/7,z),h)
 			var d=V.v3(p+Vector2(x,z+size*2/7),h)
 			var e=V.v3(p+Vector2(x+size*2/7,z+size*2/7),h)
-			g.quad(a,b,e,d,soil.lightened(0.018*(j%2)))
+			g.finish=5 if c.crop and season!=2 else 0
+			g.quad(a,b,e,d,soil.lightened(0.03*(j%2)))
+			if c.crop and season!=2:
+				g.quad(a.lerp(b,0.05),a.lerp(b,0.30),d.lerp(e,0.33),d.lerp(e,0.08),Color("#779484").darkened(0.04*(k%3)))
+			g.finish=0
 			if c.crop:
 				var q=(a+e)*0.5
-				var plant=Color("#a4944d") if season==2 else Color("#749546")
+				var plant=Color("#be994e") if season==2 else Color("#54874c")
 				if sick and (j+k)%4==0: plant=Color("#95774b")
 				tuft(g,q,0.30 if season==2 else 0.23,plant,local_rng,season==2)
+				if season==2:
+					var head=q+Vector3(0.05,0.34,-0.02)
+					g.beam(q,head,0.007,0.006,plant,4)
+					for seed in 4:
+						var next=head+Vector3(0.026,-0.015-seed*0.003,0.007)
+						g.beam(head,next,0.012,0.009,Color("#d8b454"),5)
+						head=next
 	for side in 4:
 		var corners=[Vector2(-size,-size),Vector2(size,-size),Vector2(size,size),Vector2(-size,size)]
 		for j in 6:
@@ -227,15 +230,15 @@ static func field(g,id: int,c: Dictionary,season: int,sick: bool):
 		var b=V.v3(p+Vector2(-0.92,0.9),0.06)
 		g.beam(a,b,0.09,0.09,Color("#538576"),6)
 
-static func site(g,id: int,c: Dictionary,season: int,sick: bool):
+static func site(g,id: int,c: Dictionary,season: int,sick: bool,era: int=0):
 	var xy=V.center(id)
 	var p=V.v3(xy,0.04)
 	var rng=RandomNumberGenerator.new()
 	rng.seed=101+id*203
 	match c.kind:
 		"camp":
-			house(g,V.v3(xy+Vector2(-0.31,-0.36)),1.03,0.21)
-			house(g,V.v3(xy+Vector2(0.51,0.48)),0.72,-0.61)
+			house(g,V.v3(xy+Vector2(-0.31,-0.36)),1.03,0.21,false,era)
+			house(g,V.v3(xy+Vector2(0.51,0.48)),0.72,-0.61,false,era)
 			for i in 4:
 				var q=V.v3(xy+Vector2(-0.60+i*0.17,0.50),0.15)
 				g.oval(q,Vector3(0.12,0.15,0.13),REED,i,7,3)
@@ -247,8 +250,9 @@ static func site(g,id: int,c: Dictionary,season: int,sick: bool):
 			g.beam(post,post+Vector3.UP*0.65,0.034,0.025,WOOD)
 			g.box(post+Vector3(0,0.54,0),Vector3(0.29,0.14,0.055),REED,0.2)
 		"farm": field(g,id,c,season,sick)
+		"wood","stone": Craft.depot(g,p,c.kind)
 		"academy":
-			house(g,p+Vector3(-0.26,0,-0.18),1.10,0.13)
+			house(g,p+Vector3(-0.26,0,-0.18),1.10,0.13,false,era)
 			g.box(p+Vector3(0.55,0.27,0.50),Vector3(0.64,0.08,0.38),REED)
 			for dx in [0.32,0.79]:
 				g.beam(p+Vector3(dx,-0.1,0.5),p+Vector3(dx,0.28,0.5),0.037,0.032,WOOD)
@@ -256,10 +260,11 @@ static func site(g,id: int,c: Dictionary,season: int,sick: bool):
 			g.beam(p+Vector3(0.66,0,-0.40),p+Vector3(0.66,1.36,-0.40),0.035,0.025,WOOD)
 			g.box(p+Vector3(0.86,1.15,-0.40),Vector3(0.42,0.26,0.035),Color("#657c70"))
 		"house":
-			house(g,p,1.1,-0.22)
+			house(g,p,1.1,-0.22,false,era)
 			g.beam(p+Vector3(-0.65,0.0,0.53),p+Vector3(-0.65,0.52,0.53),0.03,0.03,WOOD)
 			g.box(p+Vector3(-0.36,0.41,0.54),Vector3(0.45,0.19,0.04),Color("#ab8467"))
 		"canal":
+			Craft.wheel(g,p+Vector3(0.48,0.50,-0.08))
 			g.box(p+Vector3.UP*0.07,Vector3(0.62,0.14,1.64),STONE)
 			g.box(p+Vector3.UP*0.15,Vector3(0.40,0.03,1.68),Color("#609286"))
 			for dx in [-0.30,0.30]:
@@ -271,22 +276,19 @@ static func site(g,id: int,c: Dictionary,season: int,sick: bool):
 				g.box(q,Vector3(0.34,0.14,1.14),WOOD)
 				for k in 5: tuft(g,q+Vector3(0,0.10,k*0.20-0.4),0.24,Color("#91a655"),rng)
 		"store":
-			house(g,p,1.32,-0.22,true)
+			house(g,p,1.32,-0.22,true,era)
 			for j in 3:
 				g.oval(V.v3(xy+Vector2(-0.50+j*0.22,0.67),0.19),Vector3(0.13,0.19,0.13),REED,j,8,3)
 		"station":
 			g.box(p+Vector3.UP*0.36,Vector3(1.25,0.72,0.79),Color("#a89f82"))
 			g.box(p+Vector3.UP*0.76,Vector3(1.40,0.12,0.95),Color("#63756a"))
 			g.box(p+Vector3(0.12,0.28,0.403),Vector3(0.6,0.54,0.035),Color("#464d43"))
-			var q=p+Vector3(-0.28,0.20,0.72)
-			g.box(q,Vector3(0.57,0.17,0.26),Color("#9a7048"))
-			for xx in [-0.18,0.20]:
-				for zz in [-0.15,0.15]:
-					g.oval(q+Vector3(xx,-0.07,zz),Vector3(0.12,0.12,0.055),Color("#484a3c"),0,7,3)
+			Craft.tractor(g,p+Vector3(-0.19,0.04,0.76))
+			for j in 9: g.box(p+Vector3(-0.61+j*0.15,0.83,0),Vector3(0.026,0.025,0.95),Color("#929c88"))
 	if c.get("level",1)==2 and c.kind not in ["","wild","camp"]:
 		if c.kind=="farm":
 			g.beam(p+Vector3(-0.90,0.12,-0.86),p+Vector3(0.91,0.12,-0.86),0.055,0.048,REED)
-		else: house(g,V.v3(xy+Vector2(-0.62,0.59)),0.57,0.45,true)
+		else: house(g,V.v3(xy+Vector2(-0.62,0.59)),0.57,0.45,true,era)
 	if c.project!="":
 		for a in [-0.66,0.66]:
 			for b in [-0.62,0.62]:

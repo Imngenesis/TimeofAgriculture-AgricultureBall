@@ -3,6 +3,8 @@ extends SceneTree
 const Model=preload("res://simulation.gd")
 const Town=preload("res://settlement.gd")
 const Saves=preload("res://saves.gd")
+const E=preload("res://economy.gd")
+const V=preload("res://valley.gd")
 
 var failures=0
 
@@ -20,18 +22,22 @@ func population():
 	for season in 3:
 		m.s.food=30
 		m.finish_season()
-	expect(m.s.pop==10,"surplus alone cannot overcome the bed limit")
+	expect(m.s.pop==10 and m.recruit()!="","recruitment checks bed limit")
 	m.s.cells[46].kind="house"
 	m.s.happiness=35
 	for season in 2:
 		m.s.food=30
 		m.finish_season()
-	expect(m.s.pop==10,"growth requires contented residents")
+	expect(m.s.pop==10,"waiting does not recruit")
 	m.s.happiness=62
 	for season in 2:
 		m.s.food=30
 		m.finish_season()
-	expect(m.s.pop==11 and m.free_workers()==11,"new resident can work")
+	expect(m.s.pop==10,"surplus and spare beds alone never create people")
+	var food=m.s.food
+	var wood=m.s.wood
+	expect(m.recruit()=="" and m.s.food==food-E.HIRE_FOOD and m.s.wood==wood-E.HIRE_WOOD,"recruitment charges exactly once")
+	expect(m.s.pop==11 and m.free_workers()==11,"recruited resident can work immediately")
 	for season in 2:
 		m.s.food=1
 		m.finish_season()
@@ -69,6 +75,9 @@ func construction():
 	expect(m.s.last_ledger.build==4 and m.s.ledger.refund==refund,"refund balances across a season boundary")
 	expect(m.cancel_project("t46")!="" and m.s.food==before+refund and m.free_workers()==10,"refund cannot be claimed twice")
 	m.s.cells[40].kind="canal"
+	expect(not Town.covered(m.s,39,"canal") and m.vacancies().has("t40"),"unattended canal raises a staffing alert and supplies no water")
+	expect(m.fill_vacancies()==1 and not m.vacancies().has("t40"),"automatic assignment uses one idle worker")
+	for tick in 10: m.work()
 	expect(Town.covered(m.s,39,"canal") and not Town.covered(m.s,38,"canal"),"level-one canal covers one hex")
 	m.s.cells[40].level=2
 	expect(Town.covered(m.s,38,"canal"),"level-two canal reaches a second hex")
@@ -129,12 +138,15 @@ func legacy(path: String, output: String):
 	source.folder=path.get_base_dir()+"/"
 	var sha=FileAccess.get_sha256(path)
 	var old=source.read(path.get_file().get_basename())
-	if not expect(old.get("version",0)==1,"read a genuine version-one save"): return
+	if not expect(old.get("version",0) in [1,2],"read an earlier release save"): return
 	var m=Model.new()
 	m.restore(old.duplicate(true))
 	for key in ["turn","era","clock","food","seed","tech","study","study_time","science","workers","pending","policy"]:
 		expect(m.s[key]==old[key],"old save preserves "+key)
-	expect(m.s.version==2 and m.s.cells[0].has("condition"),"map has migrated building and economy data")
+	expect(m.s.version==3 and m.s.difficulty==1 and m.s.cells.size()==180 and m.s.cells[0].has("condition"),"legacy campaign expands into the standard economy")
+	for i in old.cells.size():
+		if old.cells[i].kind!="" or old.cells[i].project!="":
+			expect(old.cells[i].kind==m.s.cells[i].kind and old.cells[i].project==m.s.cells[i].project,"existing sites retain IDs")
 	var target=Saves.new()
 	target.folder=output.path_join("migrated")+"/"
 	if not expect(DirAccess.make_dir_recursive_absolute(target.folder)==OK,"isolated migration output"): return
@@ -150,18 +162,68 @@ func legacy(path: String, output: String):
 		m.tick()
 	expect(old.outcome!="" or m.s.turn>turn,"restored campaign plays into the next season")
 	expect(FileAccess.get_sha256(path)==sha,"original save file preserved")
-	if failures==0: print("PASS version-one save round-trip, checkpoint and continued play")
+	if failures==0: print("PASS version %d save round-trip, expanded map, checkpoint and continued play" % old.version)
+
+func budget_and_land():
+	var m=Model.new()
+	var food=[]
+	var fees=[]
+	var yields=[]
+	for i in E.DIFFICULTIES.size():
+		m.reset(i)
+		food.append(m.s.food)
+		m.s.cells[39].kind="farm"
+		m.s.era=3
+		fees.append(E.budget(m.s).total)
+		yields.append(m.expected_yield(39))
+	expect(food[0]>food[1] and food[1]>food[2] and fees[0]<fees[1] and fees[1]<fees[2] and yields[0]>yields[1] and yields[1]>yields[2],"difficulty affects starting supplies, recurring costs and actual crop yields")
+	m.reset()
+	m.s.cells[39].kind="farm"
+	var previous_yield=0
+	var previous_fee=-1
+	for era in 4:
+		m.s.era=era
+		expect(m.expected_yield(39)>previous_yield and E.budget(m.s).total>previous_fee,"each era increases production and operating obligations")
+		previous_yield=m.expected_yield(39)
+		previous_fee=E.budget(m.s).total
+	m.s.budget=0
+	var low=E.budget(m.s).total
+	m.s.budget=2
+	expect(E.budget(m.s).total>low and m.s.efficiency==100,"choosing a budget previews its cost without granting the benefit early")
+	m.finish_season()
+	expect(m.s.efficiency==115 and m.s.last_ledger.operations==m.s.last_ledger.due,"funded services improve next season")
+	m.s.food=m.s.pop
+	m.finish_season()
+	expect(m.s.food==0 and m.s.last_ledger.eat==m.s.pop and m.s.last_ledger.operations==0 and m.s.efficiency<85,"rations take priority and underfunding reduces service")
+	m.reset()
+	var due=E.budget(m.s).total
+	expect(E.claim(m.s,1)=="" and m.s.districts.has(1) and E.budget(m.s).total>due,"land joins the permanent operating budget")
+	var balance=m.s.food
+	expect(E.claim(m.s,1)!="" and m.s.food==balance,"duplicate land claims are free of side effects")
+	var wood=m.s.wood
+	E.trade(m.s,"wood",true)
+	expect(m.s.wood==wood+4 and m.s.food==balance-5,"market purchases exchange stored goods")
+	E.trade(m.s,"wood",false)
+	expect(m.s.wood==wood and m.s.food==balance-3,"trade spread prevents creating food from a round trip")
+	for i in V.COLS*V.ROWS:
+		var pos=V.grid(i)
+		expect(V.id_at(pos.x,pos.y)==i and V.cell_at(V.center(i))==i,"expanded map index and picking agree")
+		for d in 6:
+			var neighbour=V.nb(i,d)
+			if neighbour>=0: expect(V.nb(neighbour,d+3)==i and V.distance(i,neighbour)==1,"district boundaries preserve hex adjacency")
+	for i in E.DEPOSITS: expect(V.tier(i)>=0,"supply site is on land")
 
 func run():
 	population()
 	construction()
 	advancement()
 	modern_fields()
+	budget_and_land()
 	var path=""
 	var output=OS.get_cache_dir().path_join("RiceByTheRiver-checks")
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--legacy-file="): path=arg.trim_prefix("--legacy-file=")
 		if arg.begins_with("--test-output="): output=arg.trim_prefix("--test-output=")
 	if path!="": legacy(path,output)
-	if failures==0: print("PASS population, food, building coverage, cancellation, era prerequisites and modern field outcomes")
+	if failures==0: print("PASS recruitment, staffing, budgets, supplies, map adjacency, difficulty, era prerequisites and modern field outcomes")
 	quit(0 if failures==0 else 1)

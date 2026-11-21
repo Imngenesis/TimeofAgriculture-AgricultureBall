@@ -3,9 +3,9 @@ extends RefCounted
 const Ink=preload("res://ink.gd")
 const BG=Color("#202b26")
 const DEEP=Color("#19231f")
-const PANEL=Color(0.105,0.15,0.125,0.95)
-const LINE=Color("#69674f")
-const GOLD=Color("#e0c586")
+const PANEL=Color(0.065,0.125,0.125,0.97)
+const LINE=Color("#516763")
+const GOLD=Color("#ebc78a")
 const TEXT=Color("#f0e9d6")
 const DIM=Color("#bbc0a8")
 const GREEN=Color("#a7c89a")
@@ -57,10 +57,25 @@ static func box(vertical: bool=true,gap: int=6) -> BoxContainer:
 
 static func panel(parent: Control,l: float,t: float,r: float,b: float,m: Rect2i,bg: Color=PANEL) -> PanelContainer:
 	var p=PanelContainer.new()
-	p.add_theme_stylebox_override("panel",style(bg,LINE,1,2))
+	var surface=style(bg,LINE,1,5)
+	surface.shadow_color=Color(0.02,0.06,0.06,0.34)
+	surface.shadow_size=4
+	surface.shadow_offset=Vector2(0,2)
+	p.add_theme_stylebox_override("panel",surface)
 	parent.add_child(p)
 	rect(p,l,t,r,b,m)
 	return p
+
+static func metric(row: Control,caption: String,number: String,tone: Color=GOLD):
+	var tile=PanelContainer.new()
+	var surface=style(Color("#233c39"),tone.darkened(0.48),0,3)
+	surface.border_width_left=3
+	tile.add_theme_stylebox_override("panel",surface)
+	tile.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	row.add_child(tile)
+	var words=box(true,0)
+	inset(tile,7).add_child(words)
+	words.add_child(label(caption,12,DIM));words.add_child(label(number,20,tone))
 
 static func rect(c: Control,l: float,t: float,r: float,b: float,offsets: Rect2i):
 	c.set_anchor(SIDE_LEFT,l); c.set_anchor(SIDE_TOP,t)

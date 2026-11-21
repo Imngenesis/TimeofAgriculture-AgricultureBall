@@ -1,5 +1,7 @@
 extends RefCounted
 
+const V=preload("res://valley.gd")
+
 var folder="user://"
 var checkpoint={}
 
@@ -40,4 +42,6 @@ func read(slot: String) -> Dictionary:
 	return {}
 
 func valid(state: Variant) -> bool:
-	return state is Dictionary and state.get("version",0) in [1,2] and state.get("cells",[]).size()==72 and state.get("workers",[]).size()==state.get("pop",-1)
+	if not state is Dictionary or not state.get("version",0) in [1,2,3]: return false
+	var count=V.COLS*V.ROWS if state.version==3 else V.CORE_CELLS
+	return state.get("cells",[]).size()==count and state.get("workers",[]).size()==state.get("pop",-1)

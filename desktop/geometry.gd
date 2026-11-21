@@ -3,6 +3,9 @@ extends RefCounted
 var vertices=PackedVector3Array()
 var normals=PackedVector3Array()
 var colors=PackedColorArray()
+var finishes=PackedVector2Array()
+var mark_finishes=false
+var finish=0
 
 func tri(a: Vector3,b: Vector3,c: Vector3,color: Color,outward: Vector3=Vector3.UP):
 	var n=(c-a).cross(b-a)
@@ -16,6 +19,9 @@ func tri(a: Vector3,b: Vector3,c: Vector3,color: Color,outward: Vector3=Vector3.
 	vertices.append(a); vertices.append(b); vertices.append(c)
 	normals.append(n); normals.append(n); normals.append(n)
 	colors.append(color); colors.append(color); colors.append(color)
+	if mark_finishes:
+		var id=Vector2(finish,0)
+		finishes.append(id);finishes.append(id);finishes.append(id)
 
 func quad(a: Vector3,b: Vector3,c: Vector3,d: Vector3,col: Color,outward: Vector3=Vector3.UP):
 	tri(a,b,c,col,outward)
@@ -25,6 +31,9 @@ func gradient_triangle(a: Vector3,b: Vector3,c: Vector3,ca: Color,cb: Color,cc: 
 	vertices.append(a); vertices.append(b); vertices.append(c)
 	colors.append(ca); colors.append(cb); colors.append(cc)
 	normals.append(na); normals.append(nb); normals.append(nc)
+	if mark_finishes:
+		var id=Vector2(finish,0)
+		finishes.append(id);finishes.append(id);finishes.append(id)
 
 func beam(a: Vector3,b: Vector3,ra: float,rb: float,col: Color,sides: int=6):
 	var axis=b-a
@@ -99,6 +108,7 @@ func bake(mat: Material) -> MeshInstance3D:
 	a[Mesh.ARRAY_VERTEX]=vertices
 	a[Mesh.ARRAY_NORMAL]=normals
 	a[Mesh.ARRAY_COLOR]=colors
+	if mark_finishes: a[Mesh.ARRAY_TEX_UV]=finishes
 	var mesh=ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,a)
 	mesh.surface_set_material(0,mat)

@@ -9,6 +9,17 @@ func _draw():
 	draw_set_transform(p,0,Vector2.ONE*side/32.0)
 	var c=tint
 	match symbol:
+		"materials":
+			for k in 3:
+				var a=Vector2(6+k*3,23-k*5)
+				draw_line(a,a+Vector2(12,-5),c,2,true)
+				draw_arc(a,2.5,0,TAU,12,c,1.2,true)
+			stroke([Vector2(18,21),Vector2(22,16),Vector2(28,18),Vector2(30,25),Vector2(20,26),Vector2(18,21)],c)
+		"balance":
+			stroke([Vector2(4,26),Vector2(28,26)],c)
+			for k in 3:
+				var h=7+k*5
+				draw_rect(Rect2(6+k*7,24-h,4,h),c,false,1.5)
 		"seal":
 			draw_arc(Vector2(16,16),14,0,TAU,56,c,0.9,true)
 			draw_arc(Vector2(16,16),11.7,0.13,3.01,26,c,0.7,true)
