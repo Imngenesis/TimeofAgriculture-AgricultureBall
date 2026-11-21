@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#203c32">
+<title>稻生江畔 · 四时代</title>
+<style>
+:root{color-scheme:light;--paper:#f5f2e8;--panel:#fcf9ef;--ink:#25392e;--muted:#647264;--pine:#244a3b;--line:#d8d8c7;--gold:#bea166;--rust:#925336;--serif:"Noto Serif SC","Songti SC",SimSun,serif;--sans:"Microsoft YaHei","PingFang SC",system-ui,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 var(--sans)}button,select{font:inherit}button{cursor:pointer;color:inherit}button:disabled{cursor:not-allowed}button:focus-visible,select:focus-visible,summary:focus-visible,canvas:focus-visible{outline:3px solid #b67f27;outline-offset:3px}h1,h2,h3,p{margin:0}h1,h2,h3{font-family:var(--serif)}[hidden]{display:none!important}button{touch-action:manipulation}
+.top{background:#203c32;color:#f1eddb;border-bottom:3px solid #b69a61}.topInner,main{width:min(1540px,100%);margin:auto;padding-inline:clamp(14px,3.4vw,58px)}.topInner{min-height:71px;display:flex;align-items:center;gap:16px}.seal{display:grid;place-items:center;width:39px;height:41px;border:1px solid #c5ac75;border-radius:9px 2px;color:#e4c581}.seal canvas{width:29px;height:29px}.brand h1{font-size:clamp(24px,2.4vw,33px);font-weight:600;line-height:1.08;letter-spacing:.12em}.timeline{display:flex;align-items:center;margin:auto;gap:14px}.epoch{display:flex;align-items:center;gap:6px;font-size:12px;color:#a1b1a3;white-space:nowrap}.epoch i{width:7px;height:7px;border-radius:100%;border:1px solid #8a9d8f}.epoch.here{color:#ffdc94}.epoch.here i{background:#e2bd70;border-color:#e2bd70;box-shadow:0 0 0 3px #e2bd702c}.epoch.past i{background:#a5bca7}.epoch+.epoch:before{content:"";width:18px;border-top:1px solid #5a6e5e;margin-right:3px}.headBtn{border:1px solid #69806c;background:transparent;color:#edead8;border-radius:5px;padding:6px 11px;font-size:13px;white-space:nowrap}.headBtn:hover{background:#385448}
+main{padding-bottom:24px}.resources{display:grid;grid-template-columns:repeat(5,1fr);padding:15px 0 17px;gap:10px}.resource{display:flex;align-items:center;gap:11px;border-right:1px solid var(--line);min-width:0}.resource:last-child{border:0}.resource .icoBox{width:35px;height:35px;display:grid;place-items:center;color:#687a54;background:#e7e9d7;border:1px solid #d6d9c3;border-radius:50%}.resource:nth-child(2) .icoBox{color:#977738;background:#eee5cf;border-color:#e2d6b7}.ico{width:20px;height:20px;vertical-align:middle}.resource small,.eyebrow{display:block;font-size:12px;color:var(--muted)}.resource strong{font-size:23px;line-height:1.08;font-weight:630;font-variant-numeric:tabular-nums;letter-spacing:-.04em}.unit{font-size:12px;color:var(--muted);margin-left:4px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,32%);gap:16px;align-items:start}.card{background:var(--panel);border:1px solid #d2d4c1;border-radius:10px;overflow:hidden;box-shadow:0 3px 8px #29362709}.boardHead,.fieldHead,.row,.sideHead,.journalHead{display:flex;align-items:center;justify-content:space-between;gap:10px}.boardHead,.journalHead{padding:13px 17px}.boardHead h2,.journalHead h2{font-size:20px}.boardHead small{margin-left:9px;color:var(--muted);font:12px var(--sans)}.switch{display:inline-flex;gap:2px;background:#e9e9da;border-radius:6px;padding:3px}.switch button{background:none;border:0;padding:3px 9px;font-size:12px;border-radius:4px;color:#596a5e}.switch button.on{background:#fffdf3;color:#244a3b;box-shadow:0 1px 3px #183d2924}
+.mapBox{position:relative;border-block:1px solid #c7ccb7;background:#dee3cb;overflow:hidden}.mapBox>canvas{width:100%;height:auto;aspect-ratio:1000/490;display:block;cursor:grab;touch-action:none}.mapBox>canvas.grabbing{cursor:grabbing}.mapCaption{position:absolute;pointer-events:none;top:10px;left:12px;color:#46604b;font-size:11px;letter-spacing:.08em;background:#f9f6e8dc;padding:3px 8px;border-radius:3px}.zoom{position:absolute;right:10px;bottom:9px;display:flex;gap:1px;padding:2px;background:#eae9dcea;border:1px solid #b2b9a1;border-radius:5px}.zoom button{background:transparent;border:0;font-size:17px;line-height:1;width:29px;height:26px;color:#3d5546}.zoom button:hover{background:#fffcf0}.field{padding:13px 17px 16px}.fieldHead{align-items:start}.fieldHead h3{font-size:21px;margin:0}.fieldHead select{font-size:12px;border:1px solid var(--line);background:#f5f3e7;border-radius:4px;color:#526353;padding:4px 6px}.fieldType{font-size:12px;color:var(--muted);margin-left:9px;font-family:var(--sans);font-weight:400}.fieldFacts{display:flex;flex-wrap:wrap;gap:3px 15px;font-size:12px;color:#526554;margin:5px 0 9px}.fieldFacts b{color:#384e3e}.actions{display:flex;flex-wrap:wrap;gap:6px}.action{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:6px 11px;background:#e9ecda;border:1px solid #c4ceb5;border-radius:5px;color:#2f5038;font-size:13px}.action small{font-size:11px;color:#607153}.action:hover:enabled{background:#dce6c9;border-color:#859d76}.action:disabled{background:#f0efe5;border-color:#dedfd1;color:#73776b}.action:disabled small{color:#777d70}.notes{font-size:12px;color:var(--muted);margin-top:7px}
+.side{display:grid;gap:12px}.chapter{padding:18px 20px 15px;background:linear-gradient(136deg,#264b3b,#344e3b);color:#f5f1da;position:relative;overflow:hidden}.chapter:after{content:"";position:absolute;width:145px;height:145px;right:-60px;top:-70px;border:1px solid #c4c69f39;border-radius:50%;box-shadow:0 0 0 10px #b5c39b10,0 0 0 22px #b5c39b0d,0 0 0 39px #b5c39b0a;pointer-events:none}.chapter .eyebrow{color:#ded2a3;letter-spacing:.09em}.chapter h2{font-size:clamp(26px,2.5vw,34px);line-height:1.25;font-weight:600;margin:4px 0}.chapter p{font-size:13px;color:#d8e3ce}.season{font-size:12px;white-space:nowrap;color:#efe1b3}.goals{padding:13px 17px 12px}.goals h3,.work h3{font-size:17px}.checks{list-style:none;padding:0;margin:7px 0 10px;display:grid;gap:4px}.checks li{display:flex;align-items:start;gap:8px;font-size:13px}.mark{color:#74836d;font-size:13px}.done .mark{color:#437449}.done{color:#58715b}.outlook{padding:8px 10px;background:#f0ead9;border-left:3px solid #c5a366;color:#735e39;font-size:12px;line-height:1.55}.outlook.hot{background:#f3e4d4;border-left-color:#bd794e;color:#7b452e}
+.work{padding:13px 17px}.techline{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:7px 0;border-bottom:1px solid #e2e2d3}.techline:last-child{border:0;padding-bottom:0}.techline strong{display:block;font-size:13px}.techline small{display:block;font-size:11px;color:var(--muted);line-height:1.4}.techBtn{flex:none;font-size:12px;padding:4px 8px;color:var(--pine);border:1px solid #b9c5ac;border-radius:4px;background:#eaf0dc}.techBtn:disabled{color:#6b7769;background:#efefe3;border-color:#dee0d3}.textBtn{border:0;background:transparent;color:#45664d;font-size:12px;text-decoration:underline;text-underline-offset:3px}.advance{border:1px solid #233e30;border-radius:7px;min-height:46px;background:#2e5640;color:#fff5d9;text-align:center;font-weight:600;letter-spacing:.06em}.advance:hover{background:#3c654c}.advance span{margin-left:10px;color:#e5c985}.feedback{min-height:22px;font-size:13px;color:#486045;padding:3px 2px}.journal{margin-top:13px}.journalHead{padding-block:10px;border-bottom:1px solid var(--line)}.journalHead h2{font-size:17px}.journalHead small{font-size:12px;color:var(--muted)}.entries{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 20px;padding:10px 16px 13px}.entry{font-size:12px;line-height:1.55;color:#415443}.entry time{color:#797c66;margin-right:8px}.ledger{margin-top:8px;border-top:1px solid #dedfcf;padding-top:6px;font-size:12px;color:var(--muted)}.ledger summary{cursor:pointer;color:#486349}.ledger dl{display:grid;grid-template-columns:1fr auto;gap:3px;margin:5px 0}.ledger dd{font-variant-numeric:tabular-nums;margin:0;color:var(--ink)}
+.shade{position:fixed;inset:0;display:grid;place-items:center;z-index:9;background:#192f29a8;padding:15px;backdrop-filter:blur(3px)}.dialog{width:min(480px,100%);max-height:85vh;overflow:auto;background:var(--panel);border:1px solid #d9d4b7;border-radius:11px;padding:24px;box-shadow:0 13px 70px #10251d66}.dialog h2{font-size:26px;margin:3px 0 6px}.dialog p{font-size:14px;margin:6px 0 12px;color:#455744}.dialog .choices{display:grid;gap:7px;margin-top:13px}.option{border:1px solid #bdc9ad;background:#edf0df;border-radius:6px;text-align:left;padding:9px 12px}.option strong,.option small{display:block}.option strong{font-size:14px;color:#304d35}.option small{font-size:12px;color:#63715e}.option:hover:enabled{background:#e0e8ce}.option:disabled{opacity:.55}.treeEra{margin:12px 0}.treeEra h3{font-size:15px;margin-bottom:3px}.badge{font-size:11px;color:#816d44;background:#efe6ce;padding:2px 6px;border-radius:4px}.footnote{font-size:12px;color:#667360}
+@media(min-width:1500px){.mapBox>canvas{max-height:493px}.chapter,.goals,.work{padding-inline:24px}}
+@media(max-width:1050px){.timeline{gap:8px}.epoch+.epoch:before{width:10px}.layout{grid-template-columns:minmax(0,1fr) 304px}.resources{gap:5px}.resource{gap:7px}.topInner{gap:10px}.boardHead small{display:none}}
+@media(max-width:790px){.timeline{display:none}.topInner>.headBtn:first-of-type{margin-left:auto}.layout{grid-template-columns:minmax(0,1fr)}.side{grid-template-columns:1fr 1fr;align-items:start}.advance,.feedback{grid-column:1/-1}.side{gap:8px}.mapBox>canvas{max-height:none}.resource .icoBox{width:26px;height:26px}.resource .ico{width:15px;height:15px}.resource strong{font-size:19px}.resources{padding-block:10px}.chapter{padding:12px 15px}.goals,.work{padding:11px 13px}.journal{margin-top:7px}}
+@media(max-width:540px){.topInner{min-height:57px}.seal{width:31px;height:33px}.brand h1{font-size:24px}.headBtn{font-size:12px;padding:4px 8px}.resources{gap:2px}.resource .icoBox{display:none}.resource:last-child{padding-left:2px}.resource small{font-size:10px}.resource strong{font-size:17px}.unit{font-size:10px;margin-left:2px}.resource{justify-content:center}.boardHead,.field{padding-inline:11px}.boardHead{padding-block:8px}.boardHead h2{font-size:17px}.mapBox>canvas{aspect-ratio:1000/630}.mapCaption{font-size:9px;left:5px;top:5px}.zoom{bottom:3px;right:4px}.zoom button{height:22px;width:23px}.side{grid-template-columns:1fr}.fieldType{font-size:11px}.entries{grid-template-columns:1fr}.stageCard{display:grid;grid-template-columns:minmax(105px,.8fr) 1.6fr}.chapter{padding:12px 10px}.chapter .sideHead{display:block}.chapter h2{font-size:22px}.chapter p{font-size:11px}.goals{padding:8px 10px}.goals h3{font-size:14px}.checks{gap:2px;margin:4px 0}.checks li,.outlook{font-size:11px}.outlook{padding:4px 6px}.work{padding-block:8px}.fieldFacts{gap:3px 9px}.actions{gap:4px}.action{min-height:31px;padding:4px 7px;font-size:12px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header class="top"><div class="topInner"><div class="seal" aria-hidden="true"><canvas data-icon="wheat"></canvas></div><div class="brand"><h1>稻生江畔</h1></div><nav class="timeline" id="timeline" aria-label="时代进度"></nav><button class="headBtn" data-ui="help">玩法</button><button class="headBtn" data-ui="reset">新聚落</button></div></header>
+<main><noscript>请用开启 JavaScript 的浏览器打开本文件。</noscript><section class="resources" id="resources" aria-label="聚落资源"></section>
+<div class="layout"><section class="card"><div class="boardHead"><h2>河谷舆图<small>长江中下游</small></h2><div class="switch" aria-label="地图图层"><button data-layer="land" class="on" aria-pressed="true">地貌</button><button data-layer="risk" aria-pressed="false">灾情</button></div></div>
+<div class="mapBox"><canvas id="map" width="1000" height="490" tabindex="0" aria-label="河谷地图。点选有地名的田区，可拖动或缩放。键盘按一至四也可切换田区。"></canvas><span class="mapCaption" id="mapCaption"></span><div class="zoom"><button data-zoom="in" aria-label="放大地图">+</button><button data-zoom="home" aria-label="地图全景">⌂</button><button data-zoom="out" aria-label="缩小地图">−</button></div></div>
+<div class="field"><div class="fieldHead"><h3 id="fieldTitle"></h3><select id="fieldSelect" aria-label="切换田区"></select></div><div class="fieldFacts" id="fieldFacts"></div><div class="actions" id="fieldActions"></div><div class="notes" id="fieldNote"></div></div></section>
+<aside class="side"><section class="card stageCard"><div class="chapter"><div class="sideHead"><span class="eyebrow" id="chapterNo"></span><span class="season" id="season"></span></div><h2 id="chapterName"></h2><p id="chapterRisk"></p></div><div class="goals"><h3>本时代目标</h3><ul id="goals" class="checks"></ul><div id="forecast" class="outlook"></div></div></section>
+<section class="card work"><div class="row"><h3>农业科技</h3><button class="textBtn" data-ui="tree">查看科技树</button></div><div id="research"></div></section>
+<button id="advance" class="advance" data-ui="advance"></button><div class="feedback" id="feedback" role="status" aria-live="polite"></div></aside></div>
+<section class="card journal"><div class="journalHead"><h2>聚落纪事</h2><small id="saveStatus"></small></div><div class="entries" id="journal"></div></section></main>
+<div id="shade" class="shade" hidden><section class="dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"></section></div>
+<script id="simulation">
+"use strict";
+const RiverGame = (() => {
+  const ages = [
+    {name:"原始采集", short:"原始采集", numeral:"Ⅰ", threat:"季节性缺粮", task:"在第一场寒冬之前，给明年的稻种留一份粮。"},
+    {name:"早期农耕", short:"早期农耕", numeral:"Ⅱ", threat:"大洪水", task:"洪水会淹没低田。让聚落渡过洪峰，再把种子播下去。"},
+    {name:"传统农耕", short:"传统农耕", numeral:"Ⅲ", threat:"水土流失与土地退化", task:"梅雨将冲刷坡地。用梯田或轮作稳住地力和口粮。"},
+    {name:"工业与现代农业", short:"工业与现代", numeral:"Ⅳ", threat:"农业污染", task:"守住下游水质，在作物疫病后收粮、留种。"}
+  ];
+  const seasons = ["春","夏","秋","冬"];
+  const sites = [
+    {name:"河岸平田", terrain:"河漫滩", col:3, row:5, soil:72, yield:25, flood:.49, erosion:3, reach:1, wild:1, height:1},
+    {name:"林缘岗地", terrain:"林缘台地", col:1, row:3, soil:65, yield:21, flood:.12, erosion:3, reach:1, wild:3, height:3},
+    {name:"湖汊湿地", terrain:"低洼湿地", col:7, row:5, soil:79, yield:29, flood:.63, erosion:2, reach:2, wild:1, height:0},
+    {name:"上游坡地", terrain:"上游坡耕地", col:5, row:1, soil:61, yield:22, flood:.08, erosion:6, reach:0, wild:2, height:4}
+  ];
+  const techs = [
+    {id:"seed", name:"留种试种", era:0, cost:2, requires:[], effect:"解锁试种圃，春夏可开田。"},
+    {id:"dry", name:"谷物晾晒", era:0, cost:2, requires:[], effect:"解锁备荒粮仓，保护库粮。"},
+    {id:"dike", name:"圩堤排水", era:1, cost:3, requires:["seed"], effect:"可在已耕田修堤，减轻洪损。"},
+    {id:"scout", name:"田间巡查", era:1, cost:2, requires:["seed"], effect:"解锁巡田，保护本田收成。"},
+    {id:"terrace", name:"等高筑田", era:2, cost:3, requires:["seed"], effect:"可修梯田，阻止冲蚀并恢复地力。"},
+    {id:"rotate", name:"稻豆轮作", era:2, cost:2, requires:["seed"], effect:"可安排轮作，缓解地力和病害压力。"},
+    {id:"machine", name:"机械稻作", era:3, cost:3, requires:["seed"], effect:"可建农机服务站，增加工日和本田产量。"},
+    {id:"precise", name:"测土配肥", era:3, cost:3, requires:["terrace","rotate"], any:true, effect:"解锁精准施肥和农田净水沟。"}
+  ];
+  const techById = Object.fromEntries(techs.map(tech=>[tech.id,tech]));
+  const clamp = (value,min,max)=>Math.min(max,Math.max(min,value));
+  const copy = value=>JSON.parse(JSON.stringify(value));
+  const date = s=>"第 "+(s.turn+1)+" 回合 · "+seasons[s.turn%4];
+  const freeGrain = s=>s.stock-s.reserve;
+  const farmCount = s=>s.fields.filter(f=>f.farm).length;
+  const seedNeed = s=>Math.max(2,2*farmCount(s));
+  const labor = s=>5+(s.fields.some(f=>f.station)?2:0);
+  const freeWork = s=>labor(s)-s.spent;
+  const meanSoil = s=>{const farms=s.fields.filter(f=>f.farm);return farms.length?Math.round(farms.reduce((a,f)=>a+f.soil,0)/farms.length):0;};
+  const ledger = stock=>({opening:stock,wild:0,harvest:0,seed:0,project:0,damage:0,ration:0});
+  function record(s,text){s.log.unshift({date:date(s),text});if(s.log.length>22)s.log.pop();}
+  function fresh(){
+    const s={version:1,era:0,turn:0,age:0,pop:10,stock:30,reserve:0,knowledge:3,trust:65,spent:0,got:{},
+      fields:sites.map(place=>({farm:false,soil:place.soil,levee:false,terrace:false,rotation:false,store:false,station:false,ditch:false,input:"normal",due:null,loss:0,pressure:4,patrolUntil:-1,last:null,compostTurn:-1})),
+      water:[0,0,0],flags:{winter:false,firstCrop:false,floodTurn:-1,resown:false,rain:false,runoff:false,blightTurn:-1,finalCrop:false},
+      gathered:false,full:0,empty:0,ledger:ledger(30),report:null,pending:null,ended:null,log:[]};
+    record(s,"十人在江畔扎营，带来 30 份粮。四处田区尚待试种。");return s;
+  }
+  function add(s,amount,kind){s.stock+=amount;s.ledger[kind]+=amount;}
+  function spend(s,amount,kind){s.stock-=amount;s.ledger[kind]+=amount;}
+  function sow(s,f){s.reserve-=2;spend(s,2,"seed");f.due=s.turn+(s.turn%4===1?1:2);
+    if(s.flags.floodTurn>=0&&s.turn>s.flags.floodTurn)s.flags.resown=true;}
+  function wildYield(s,index){return Math.max(3,[7,9,8,3][s.turn%4]+sites[index].wild-Math.min(2,s.era));}
+  function reason(s,work,grain,knowledge=0){
+    if(s.ended)return "推演已结束";
+    if(freeWork(s)<work)return "工日不足";
+    if(freeGrain(s)<grain)return "可用粮不足";
+    if(s.knowledge<knowledge)return "农学点不足";
+    return "";
+  }
+  function researchReason(s,tech){
+    if(s.got[tech.id])return "已掌握";
+    if(s.era<tech.era)return "时代未到";
+    if(tech.requires.length&&!(tech.any?tech.requires.some(id=>s.got[id]):tech.requires.every(id=>s.got[id])))
+      return "先学"+tech.requires.map(id=>techById[id].name).join(tech.any?"或":"、");
+    if(s.pending)return "先处理危机";
+    return reason(s,1,0,tech.cost);
+  }
+  function research(s,id){
+    const t=techById[id];if(!t)return "未知科技";
+    const why=researchReason(s,t);if(why)return why;
+    s.spent++;s.knowledge-=t.cost;s.got[id]=true;record(s,"掌握「"+t.name+"」。"+t.effect);return "";
+  }
+  function actionSpec(s,i,id){
+    const f=s.fields[i],place=sites[i];let label="",work=0,grain=0,why="",hint="";
+    switch(id){
+      case "gather": label="采集野粮";work=2;hint="得 "+wildYield(s,i)+" 份粮";if(s.gathered)why="本季已采集";break;
+      case "reserve":label="留种";hint="封存 2 份粮";if(freeGrain(s)<2)why="可用粮不足";else if(s.reserve>8)why="种粮已足";break;
+      case "release":label="开仓放种";hint="转回最多 2 份口粮";if(!s.reserve)why="没有种粮";break;
+      case "farm":label=s.era?"开垦稻田":"建试种圃";work=2;hint="播种 2 份";if(f.farm)why="已经开田";else if(!s.got.seed)why="先学留种试种";else if(s.turn%4>1)why="等春夏开田";else if(s.reserve<2)why="先留种 2 份";break;
+      case "store":label="建备荒粮仓";work=2;grain=4;hint=place.height>=2||f.levee?"高地或堤内仓，洪时护种":"低地仓，配田堤可护种";if(!s.got.dry)why="先学谷物晾晒";else if(s.fields.some(x=>x.store))why="已建粮仓";break;
+      case "levee":label="修田堤";work=2;grain=4;hint="本田洪损降低";if(!s.got.dike)why="先学圩堤排水";else if(f.levee)why="田堤已建";break;
+      case "patrol":label="安排巡田";work=1;grain=1;hint="护田两季";if(!s.got.scout)why="先学田间巡查";else if(f.patrolUntil>=s.turn)why="巡田中";break;
+      case "terrace":label="修梯田";work=3;grain=5;hint="地力 +8";if(!s.got.terrace)why="先学等高筑田";else if(f.terrace)why="梯田已建";break;
+      case "rotation":label="改稻豆轮作";work=2;grain=2;hint="养地、保收";if(!s.got.rotate)why="先学稻豆轮作";else if(f.rotation)why="已在轮作";break;
+      case "compost":label="施用堆肥";work=1;grain=2;hint="地力 +8";if(s.era<2)why="第三时代开放";else if(f.compostTurn===s.turn)why="本季已培肥";else if(f.soil>=95)why="地力充足";break;
+      case "station":label="建农机服务站";work=3;grain=6;hint="聚落每季 +2 工日";if(!s.got.machine)why="先学机械稻作";else if(s.fields.some(x=>x.station))why="已有服务站";break;
+      case "precise":label="用精准水肥";work=1;grain=2;hint="减排并稳产";if(!s.got.precise)why="先学测土配肥";else if(f.input==="precise")why="精准管理中";break;
+      case "boost":label=f.input==="boost"?"恢复常规投入":"加大投入";work=1;hint=f.input==="boost"?"减少排放":"增产，排放上升";if(s.era<3)why="第四时代开放";break;
+      case "ditch":label="修农田净水沟";work=2;grain=3;hint="净化本河段";if(!s.got.precise)why="先学测土配肥";else if(f.ditch)why="已建净水沟";break;
+      default:return {id,label:"未知操作",why:"未知操作",work:0,grain:0,hint:""};
+    }
+    if(!["gather","reserve","release","farm","store"].includes(id)&&!f.farm)why="先开垦本田";
+    if(s.pending)why="先处理危机";
+    return {id,label,work,grain,hint,why:why||reason(s,work,grain),place:place.name};
+  }
+  function act(s,i,id){
+    if(!sites[i])return "未知田区";
+    const a=actionSpec(s,i,id);if(a.why)return a.why;
+    const f=s.fields[i];s.spent+=a.work;spend(s,a.grain,"project");
+    switch(id){
+      case "gather":add(s,wildYield(s,i),"wild");s.gathered=true;break;
+      case "reserve":s.reserve+=2;break;
+      case "release":s.reserve-=Math.min(2,s.reserve);break;
+      case "farm":f.farm=true;sow(s,f);break;
+      case "store":f.store=true;break;
+      case "levee":f.levee=true;break;
+      case "patrol":f.patrolUntil=s.turn+1;f.pressure=Math.max(0,f.pressure-12);break;
+      case "terrace":f.terrace=true;f.soil=clamp(f.soil+8,15,98);break;
+      case "rotation":f.rotation=true;break;
+      case "compost":f.soil=clamp(f.soil+8,15,98);f.compostTurn=s.turn;break;
+      case "station":f.station=true;break;
+      case "precise":f.input="precise";break;
+      case "boost":f.input=f.input==="boost"?"normal":"boost";break;
+      case "ditch":f.ditch=true;break;
+    }
+    record(s,["reserve","release"].includes(id)?a.label+"，仓内现留种 "+s.reserve+" 份。":a.place+" · "+a.label+"。"+a.hint+"。");return "";
+  }
+  const events={
+    flood:{name:"洪峰抵达河谷",kind:"大洪水",text:"洪水将先漫进低田。抢护田埂能保住这批庄稼，转运库粮能护住下一季的种子。",options:[
+      {id:"bank",name:"抢护田埂",detail:"本次田间洪损减少六成。库粮仍会受潮。",work:2,grain:3},
+      {id:"move",name:"转运粮种",detail:"保全库粮与种粮，河岸田承受洪损。",work:1,grain:0},
+      {id:"wait",name:"留人照常供粮",detail:"依靠既有田堤与粮仓抵挡洪峰。",work:0,grain:0}]},
+    rain:{name:"梅雨冲刷坡地",kind:"水土流失",text:"雨水正沿田垄下泄。梯田和轮作能保护表土，抢护裸坡还要另派人手。",options:[
+      {id:"cover",name:"覆盖裸土",detail:"花费少量口粮，减轻所有耕地的冲刷。",work:2,grain:3},
+      {id:"hold",name:"依托现有田管",detail:"梯田与轮作田保土，裸露田块承受流失。",work:0,grain:0}]},
+    runoff:{name:"上游农渠来水变浑",kind:"农田尾水污染",text:"农田尾水正从上游进入河道。污染会逐季移向下游，净水沟和精准施肥能减轻后续负担。",options:[
+      {id:"contain",name:"临时拦蓄尾水",detail:"本次进入上游的污染从 60 点降至 16 点。",work:2,grain:3},
+      {id:"flow",name:"维持农忙排水",detail:"保住本季人力，60 点污染进入上游。",work:0,grain:0}]},
+    blight:{name:"稻田发出疫病预警",kind:"作物疫病",text:"这批稻作面临减产。轮作和巡田可以分摊损失，聚落仍要守住下游水质。",options:[
+      {id:"care",name:"调派农技人手",detail:"压低本次减产，并降低各田病害压力。",work:2,grain:3},
+      {id:"stock",name:"依靠轮作与储备",detail:"保留粮食和人手，由田间管理抵消部分损失。",work:0,grain:0}]}
+  };
+  function reservoirHit(s,n,protectSeeds){
+    const lost=Math.min(s.stock,n);
+    const seedLoss=protectSeeds?Math.max(0,lost-freeGrain(s)):Math.min(s.reserve,Math.ceil(lost/3));
+    spend(s,lost,"damage");s.reserve=clamp(s.reserve-seedLoss,0,s.stock);
+  }
+  function dueEvent(s){
+    if(s.era===1&&s.age>=2&&s.flags.floodTurn<0)return "flood";
+    if(s.era===2&&s.age>=1&&!s.flags.rain)return "rain";
+    if(s.era===3&&!s.flags.runoff)return "runoff";
+    if(s.era===3&&s.age>=2&&s.flags.blightTurn<0)return "blight";
+    return null;
+  }
+  function respond(s,id){
+    if(!s.pending||s.ended)return "没有待处理危机";
+    const type=s.pending,o=events[type].options.find(option=>option.id===id);
+    if(!o)return "未知选项";
+    const why=reason(s,o.work,o.grain);if(why)return why;
+    s.spent+=o.work;spend(s,o.grain,"project");
+    if(type==="flood"){
+      s.flags.floodTurn=s.turn;
+      const warehouse=s.fields.findIndex(field=>field.store);
+      const sheltered=warehouse>=0&&(sites[warehouse].height>=2||s.fields[warehouse].levee);
+      if(id!=="move")reservoirHit(s,sheltered?1:warehouse>=0?3:5,sheltered);
+      s.fields.forEach((f,i)=>{if(f.farm)f.loss=Math.max(f.loss,sites[i].flood*(f.levee?.32:1)*(id==="bank"?.4:1));});
+    }else if(type==="rain"){
+      s.flags.rain=true;
+      s.fields.forEach((f,i)=>{if(f.farm)f.soil=clamp(f.soil-Math.ceil(sites[i].erosion*2.3*(f.terrace?.15:f.rotation?.45:1)*(id==="cover"?.4:1)),15,98);});
+    }else if(type==="runoff"){
+      s.flags.runoff=true;s.water[0]=clamp(s.water[0]+(id==="contain"?16:60),0,100);
+    }else{
+      s.flags.blightTurn=s.turn;
+      s.fields.forEach(f=>{if(f.farm){const protectedField=f.rotation||f.patrolUntil>=s.turn;f.loss=Math.max(f.loss,.38*(protectedField?.45:1)*(id==="care"?.4:1));f.pressure=clamp(f.pressure+(id==="care"?2:12),0,70);}});
+    }
+    record(s,events[type].kind+" · "+o.name+"。");s.pending=null;settle(s);return "";
+  }
+  function output(s,i){
+    const f=s.fields[i],p=sites[i];
+    const input=f.input==="boost"?1.24:f.input==="precise"?1.11:1;
+    return Math.max(1,Math.round(p.yield*(.55+f.soil/150)*(1+s.era*.14)*(f.station?1.20:1)*input*
+      (f.rotation?.94:1)*(1-f.pressure/240)*(1-s.water[p.reach]/300)*(1-f.loss)));
+  }
+  function waterStep(s){
+    if(s.era!==3)return;
+    const old=s.water.slice(),incoming=[s.age<2?10:2,0,0],clean=[0,0,0];
+    s.fields.forEach((f,i)=>{if(f.farm){const r=sites[i].reach;incoming[r]+=f.input==="boost"?14:f.input==="precise"?1:5;if(f.ditch)clean[r]+=8;}});
+    s.water=old.map((v,i)=>clamp(Math.round(.52*v+(i?old[i-1]*.40:0)+incoming[i]-clean[i]),0,100));
+  }
+  function goals(s){
+    if(s.era===0)return [[s.flags.firstCrop,"收获第一茬试种稻"],[s.flags.winter,"渡过缺粮的冬季"],[s.reserve>=2,"保有至少 2 份种粮"]];
+    if(s.era===1)return [[s.flags.floodTurn>=0,"应对大洪水"],[s.flags.resown,"洪水以后完成一次春播或补种"],[s.full>=1,"本季足额供粮"]];
+    if(s.era===2)return [[s.flags.rain,"渡过梅雨冲刷"],[s.fields.some(f=>f.terrace||f.rotation),"让梯田或轮作在一块田生效"],[meanSoil(s)>=54&&s.full>=2,"平均地力达 54，连续两季足额供粮"]];
+    return [[s.fields.some(f=>f.station||f.input==="precise"),"让农机或精准水肥投入农田"],[s.flags.finalCrop,"在疫病冲击当季或之后收获"],[s.water[2]<=23&&s.full>=2&&s.reserve>=seedNeed(s),"下游污染 ≤ 23，连续两季足粮，留足 "+seedNeed(s)+" 份种粮"]];
+  }
+  function settle(s){
+    const k=s.turn%4,period=date(s),chapter=s.era;
+    if(k===0)s.fields.forEach(f=>{if(f.farm&&f.due===null&&s.reserve>=2)sow(s,f);});
+    let harvest=0;
+    s.fields.forEach((f,i)=>{
+      if(!f.farm)return;
+      if(s.era>=1)f.pressure=clamp(f.pressure+(f.rotation?-3:2)-(f.patrolUntil>=s.turn?6:0),2,52);
+      if(s.era>=2)f.soil=clamp(f.soil+(f.terrace?2:f.rotation?2:-(k===1?sites[i].erosion:1)),15,98);
+      if(f.due!==null&&f.due<=s.turn){
+        const kg=output(s,i);add(s,kg,"harvest");harvest+=kg;
+        f.last={amount:kg,turn:s.turn,loss:Math.round(f.loss*100)};f.due=null;f.loss=0;
+        s.reserve=Math.min(s.stock,Math.min(10,s.reserve+2));s.flags.firstCrop=true;
+        if(s.flags.blightTurn>=0&&s.turn>=s.flags.blightTurn)s.flags.finalCrop=true;
+      }
+    });
+    const forage=[[0,6,7,0],[0,4,5,0],[0,3,4,0],[0,2,3,0]][s.era][k];add(s,forage,"wild");
+    const demand=s.pop,fed=Math.min(demand,freeGrain(s));spend(s,fed,"ration");
+    s.full=fed===demand?s.full+1:0;s.empty=fed===0?s.empty+1:0;
+    s.trust=clamp(s.trust+(fed===demand?2:-Math.ceil((demand-fed)*1.6)),0,100);
+    if(fed<demand/2)s.pop=Math.max(0,s.pop-1);
+    if(s.era===0&&k===3&&fed>0)s.flags.winter=true;
+    waterStep(s);s.knowledge=Math.min(18,s.knowledge+1+(harvest?1:0));
+    s.report={...s.ledger,closing:s.stock,demand,period,era:chapter};
+    record(s,(harvest?"入仓 "+harvest+" 份新粮，":"")+ "发放口粮 "+fed+" / "+demand+" 份。");
+    s.turn++;s.age++;s.spent=0;s.gathered=false;s.ledger=ledger(s.stock);
+    if(s.pop===0)s.ended="族群消亡";
+    else if(s.empty>=2)s.ended="连续两季断粮";
+    else if(s.trust===0)s.ended="聚落解体";
+    else if(goals(s).every(g=>g[0])){
+      if(s.era===3){s.ended="现代农业建成";record(s,"下游水质达标，疫病后的收成足以供粮和复种。");}
+      else{s.era++;s.age=0;s.pop++;s.full=0;record(s,"进入「"+ages[s.era].name+"」，新到一位村民。");}
+    }
+  }
+  function advance(s){
+    if(s.ended)return "ended";
+    if(s.pending)return "pending";
+    const event=dueEvent(s);
+    if(event){s.pending=event;return "pending";}
+    settle(s);return s.ended?"ended":"ok";
+  }
+  function forecast(s){
+    if(s.ended)return s.ended==="现代农业建成"?"四时代已经走完。":"可从本时代开始处重试。";
+    if(s.era===0){
+      if(!s.got.seed)return "先研究「留种试种」，再留种 2 份、选田建试种圃。";
+      if(!farmCount(s))return s.turn%4>1?"下个春季可以建圃，眼下可采集、留种。":"选中田区，留种 2 份后即可建试种圃。";
+      return "秋季收稻，冬季采集量低。口粮先从未封存的粮食中发放。";
+    }
+    if(s.era===1)return s.flags.floodTurn<0?(s.age>=2?"洪峰本季抵达。预留 2 工日可抢护田埂。":"洪峰将在 "+(2-s.age)+" 季后抵达。高地建仓保粮，低田修堤护稻。"):"洪水已退。春播每田用 2 份种粮，夏季也可在新田补种。";
+    if(s.era===2)return s.flags.rain?"耕地平均地力 "+meanSoil(s)+" / 54。培肥、梯田和轮作可以恢复地力。":"梅雨"+(s.age?"本季抵达":"将在下季抵达")+"。先研究并部署等高筑田或稻豆轮作。";
+    return (!s.flags.runoff?"本季上游有农田尾水，预留 2 工日可拦蓄。":s.flags.blightTurn<0?(s.age<2?"疫病预警将在 "+(2-s.age)+" 季后到来。":"本季有疫病预警。"):"留足下次春播用粮。")+" 下游污染 "+s.water[2]+" / 23。";
+  }
+  return {ages,seasons,sites,techs,techById,events,copy,date,fresh,freeGrain,farmCount,seedNeed,labor,freeWork,meanSoil,goals,actionSpec,act,research,researchReason,output,advance,respond,reason,forecast,record};
+})();
+</script>
+<script id="atlas">
+"use strict";
+function makeRiverMap(canvas,read,pick) {
+  const W=1000,H=490,R=57,dx=Math.sqrt(3)*R,dy=R*.57;
+  const river=[[0,1],[1,2],[2,3],[3],[3,4],[4,5],[5,6],[6,7]];
+  const corners=[[0,-dy],[dx/2,-dy/2],[dx/2,dy/2],[0,dy],[-dx/2,dy/2],[-dx/2,-dy/2]];
+  const cells=[],labels=[];
+  let zoom=1,panX=0,panY=0,view,needsDraw=false,pressed=null,hover=-1;
+  const tiles=["#a5ad7b","#b7bc88","#a4b17f","#aab883","#b8b780","#a2b78a"];
+  const waters=["#78a8a4","#80b1ab","#82b1a9","#73a4a1"];
+  function random(seed){return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};}
+  function poly(c,points,fill,stroke,width=1){
+    c.beginPath();points.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();
+    if(fill){c.fillStyle=fill;c.fill();}if(stroke){c.strokeStyle=stroke;c.lineWidth=width;c.stroke();}
+  }
+  function line(c,points,color,width=1){
+    c.beginPath();points.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.strokeStyle=color;c.lineWidth=width;c.stroke();
+  }
+  function oval(c,x,y,rx,ry,color){c.beginPath();c.ellipse(x,y,rx,ry,0,0,Math.PI*2);c.fillStyle=color;c.fill();}
+  function darken(hex,amount){const n=parseInt(hex.slice(1),16);return "rgb("+[(n>>16)-amount,((n>>8)&255)-amount,(n&255)-amount].map(v=>Math.max(0,Math.min(255,v))).join(",")+")";}
+  function lakeNeighbors(col,row){return river[row].some(v=>Math.abs(col-v)<2);}
+  for(let row=0;row<8;row++)for(let col=0;col<9;col++){
+    const idx=RiverGame.sites.findIndex(f=>f.col===col&&f.row===row);
+    const wet=river[row].includes(col),village=col===5&&row===3;
+    const rand=random(37+col*929+row*7891),near=lakeNeighbors(col,row);
+    let h=wet?0:near?1:1+Math.floor(rand()*3);
+    if(!wet&&row<3&&col>3)h+=1;
+    if(!wet&&col<2&&row<4)h+=1;
+    if(idx>=0)h=RiverGame.sites[idx].height;
+    if(village)h=2;
+    const x=72+(col+.5*(row%2))*dx,y=93+row*1.5*dy-h*7.4;
+    cells.push({col,row,idx,wet,village,h,x,y,near,seed:col*3191+row*5011+91});
+  }
+  function wood(c,x,y,scale,tint,rand){
+    const s=scale,shade=tint===1?"#5c795c":tint===2?"#80905c":"#486c55";
+    const mid=tint===1?"#829460":tint===2?"#a2a761":"#70865c";
+    const light=tint===1?"#9eaa75":tint===2?"#bbc07a":"#90a174";
+    oval(c,x+4*s,y+1.4*s,9*s,3.5*s,"#365e4b33");
+    line(c,[[x,y],[x-.6*s,y-14*s]],"#756749",2*s);
+    const canopy=(u,v,r)=>{
+      const points=[];for(let n=0;n<8;n++){const a=n*Math.PI/4,k=.84+rand()*.25;points.push([u+Math.cos(a)*r*k,v+Math.sin(a)*r*k*1.12]);}
+      poly(c,points,shade);poly(c,[points[3],points[4],points[5],points[6],points[7],[u+r*.15,v+r*.12]],mid);
+      poly(c,[points[4],points[5],points[6],[u+r*.10,v-r*.20]],light);
+    };
+    canopy(x-3*s,y-12*s,6.1*s);canopy(x+3*s,y-13*s,6.6*s);canopy(x,y-19*s,6.1*s);
+  }
+  function pine(c,x,y,s){
+    oval(c,x+3*s,y,7*s,2.6*s,"#375f4930");line(c,[[x,y],[x,y-15*s]],"#6c604a",2*s);
+    for(let k=0;k<3;k++){const Y=y-(4+5*k)*s,w=(8-k*1.8)*s;
+      poly(c,[[x,Y-(14-k)*s],[x-w,Y],[x,Y+1.5*s],[x+w,Y]],k===0?"#426957":"#55775c");
+      poly(c,[[x,Y-(14-k)*s],[x-w,Y],[x-s,Y-2*s]],k===2?"#8c9b71":"#758d6b");}
+  }
+  function reeds(c,x,y,s,rand){
+    for(let n=0;n<5;n++){const a=(rand()-.5)*7*s,l=(4+rand()*6)*s;line(c,[[x+a*.35,y],[x+a,y-l]],n%2?"#898c4d":"#b0a464",.9*s);}
+  }
+  function house(c,x,y,s,era,store=false){
+    c.save();c.translate(x,y);c.scale(s,s);
+    oval(c,4,0,18,5,"#374d3a30");
+    const a=[-13,-3],b=[0,3],cc=[13,-3],d=[0,-9],h=store?11:9;
+    const tops=[a,b,cc,d].map(p=>[p[0],p[1]-h]);
+    if(store){for(const p of [a,b,cc])line(c,[[p[0],p[1]],[p[0],p[1]+3]],"#615a40",2);}
+    poly(c,[a,b,tops[1],tops[0]],era>1?"#e0d7ac":"#c4ad78","#847858",.55);
+    poly(c,[b,cc,tops[2],tops[1]],"#ab956a","#807353",.55);
+    const ridgeL=[-7,-h-10],ridgeR=[7,-h-4],roof=store||era>=2?"#657b6a":"#b2925f";
+    poly(c,[tops[3],tops[2],ridgeR,ridgeL],darken(roof,22));
+    poly(c,[[tops[0][0]-2,tops[0][1]],[tops[1][0],tops[1][1]+1],ridgeR,ridgeL],roof,"#5c604c",.65);
+    poly(c,[tops[1],tops[2],ridgeR],"#9a895e","#696348",.65);
+    for(let k=1;k<8;k++){const t=k/8;line(c,[[-7+14*t,-h-10+6*t],[-14+14*t,-h-3+6*t]],store?"#a2ab8c":"#d2b67a",.65);}
+    poly(c,[[-10,-2],[-6,0],[-6,-6],[-10,-8]],"#6c644e");
+    poly(c,[[3,0],[7,-2],[7,-6],[3,-4]],"#6e6a54");c.restore();
+  }
+  function camp(c,x,y,s){
+    c.save();c.translate(x,y);c.scale(s,s);oval(c,3,0,15,4,"#40594133");
+    poly(c,[[-13,0],[-1,-17],[10,1]],"#cbaf78","#917d52",.8);
+    poly(c,[[-1,-17],[4,-16],[15,-2],[10,1]],"#aa8a5d");poly(c,[[-5,0],[0,-9],[3,1]],"#655e46");
+    line(c,[[-2,-14],[1,-20]],"#615d45",1.3);c.restore();
+  }
+  function mill(c,x,y,s){
+    c.save();c.translate(x,y);c.scale(s,s);oval(c,5,2,10,3,"#37574030");
+    poly(c,[[-3,0],[1,-17],[4,-16],[7,0]],"#b3a079","#736e51",.7);
+    c.save();c.translate(1,-16);c.rotate(.45);for(let i=0;i<4;i++){line(c,[[0,0],[0,-13]],"#776d50",1.4);poly(c,[[0,-4],[4,-4],[4,-12],[0,-13]],"#ccb987","#897f60",.55);c.rotate(Math.PI/2);}c.restore();c.restore();
+  }
+  function tractor(c,x,y,s){
+    c.save();c.translate(x,y);c.scale(s,s);oval(c,2,1,12,4,"#52684a38");
+    poly(c,[[-10,-3],[-2,-7],[11,-3],[5,0]],"#9b6845");
+    poly(c,[[-2,-7],[3,-9],[8,-7],[2,-5]],"#e0b176");
+    poly(c,[[-1,-6],[-1,-13],[4,-15],[5,-8]],"#71928c","#646c59",.8);
+    line(c,[[8,-5],[8,-11]],"#565e50",1.4);
+    for(const a of [[-6,-2,4],[7,0,2.6]]){oval(c,a[0],a[1],a[2],a[2],"#4c5849");oval(c,a[0],a[1],a[2]*.46,a[2]*.46,"#bbaf79");}c.restore();
+  }
+  function field(c,cell,f,s,rand){
+    const {x,y}=cell;const ripe=f.due!==null&&f.due-s.turn<=1;
+    const colors=ripe?["#c0a45c","#d4b76b","#a89050"]:f.rotation?["#94a16a","#91a976","#829461"]:["#9ba66b","#a8b775","#92a568"];
+    if(f.terrace)for(let j=0;j<3;j++)poly(c,[[x-38+j*4,y+4-j*6],[x-5,y+17-j*6],[x+38-j*3,y-j*6],[x+6,y-13-j*6]],j%2?"#9a9964":"#b3ad76","#8b875e",1.6);
+    for(let j=0;j<3;j++){
+      const ox=x-21+j*16,oy=y+5-j*6;
+      poly(c,[[ox-13,oy-4],[ox+7,oy-12],[ox+22,oy-5],[ox+2,oy+4]],colors[j],"#7d8253",1.2);
+      for(let k=0;k<6;k++){
+        const xx=ox-10+k*3.2,yy=oy-3-k*1.45;line(c,[[xx,yy],[xx+12,yy+5]],ripe?"#e6d08a":"#c9cb8d",1);
+        if(f.due!==null)for(let m=0;m<4;m++){const gx=xx+m*3.1,gy=yy+m*1.24;line(c,[[gx-1,gy-2],[gx,gy],[gx+2,gy-3.2]],ripe?"#bea04d":"#738f55",.8);}
+      }
+    }
+    if(f.levee){line(c,[[x-39,y+9],[x-2,y+25],[x+39,y+7]],"#847658",5.5);line(c,[[x-39,y+7],[x-2,y+23],[x+39,y+5]],"#ccbb83",3);}
+    if(f.ditch||f.input==="precise"){line(c,[[x-35,y-9],[x-4,y+5],[x+29,y-10]],"#78999a",3);line(c,[[x-34,y-9],[x-4,y+3],[x+28,y-11]],"#bdd4bf",1);}
+    if(f.station){house(c,x+14,y-8,.65,3,true);tractor(c,x-19,y+9,.85);}
+    if(f.patrolUntil>=s.turn){oval(c,x+25,y+3,1.7,2,"#795d42");line(c,[[x+25,y+5],[x+25,y+9]],"#69734e",2.4);}
+  }
+  function ground(c,cell,s,layer){
+    const {x,y,wet,h,idx,row,col}=cell,rand=random(cell.seed),pts=corners.map(([u,v])=>[x+u,y+v]);
+    const riverReach=row<3?0:row<6?1:2,load=s.water[riverReach],season=s.turn%4;
+    const tileColor=wet?(load>34?"#929d77":load>20?"#8ca58c":waters[(row+col)%waters.length]):tiles[(row*7+col*3+h)%tiles.length];
+    const wall=wet?"#7c9e92":"#b3ab85",depth=11+h*7.4;
+    for(let k=1;k<=3;k++){
+      const a=pts[k],b=pts[k+1];
+      poly(c,[a,b,[b[0],b[1]+depth],[a[0],a[1]+depth]],darken(wall,k===1?8:k===2?15:-2));
+      if(!wet&&depth>16)for(let n=1;n<=2;n++){const z=n*depth/3;line(c,[[a[0]+1,a[1]+z],[b[0]-.5,b[1]+z+1]],"#9c98783d",.7);}
+    }
+    poly(c,pts,tileColor,wet?"#8cad9b":"#7e937434",.75);
+    if(!wet&&season!==1)poly(c,pts,["#d4de9d20","","#dbaf6428","#d5dccc42"][season]);
+    c.save();c.beginPath();pts.forEach((p,i)=>i?c.lineTo(...p):c.moveTo(...p));c.closePath();c.clip();
+    if(wet){
+      for(let n=0;n<25;n++){const xx=x+(rand()-.5)*104,yy=y+(rand()-.5)*65;line(c,[[xx,yy],[xx+3,yy+.4],[xx+4+rand()*9,yy-.3]],n%3?"#b8cec181":"#578e8c5c",rand()+.6);}
+    }else{
+      for(let n=0;n<60;n++){const xx=x+(rand()-.5)*106,yy=y+(rand()-.5)*67;line(c,[[xx,yy],[xx+1+rand()*3,yy-rand()]],n%4?"#d9dba24c":"#6986614a",.7);}
+      if(h>=3){for(let n=0;n<3;n++){const yy=y+n*6-7;c.beginPath();c.moveTo(x-42,yy);c.bezierCurveTo(x-14,yy-14,x+10,yy+12,x+42,yy-7);c.strokeStyle="#72866534";c.lineWidth=.9;c.stroke();}}
+    }
+    const floodNow=s.pending==="flood"||(s.flags.floodTurn>=0&&s.turn-s.flags.floodTurn<=1);
+    if(!wet&&h<=1&&floodNow&&(!s.fields[idx]||!s.fields[idx].levee)){
+      poly(c,pts,"#719eaa6b");for(let n=0;n<12;n++){const xx=x+(rand()-.5)*94,yy=y+(rand()-.5)*56;line(c,[[xx,yy],[xx+3,yy+.5],[xx+10,yy]],"#d6ede0ac",1.15);}
+    }
+    if(idx>=0&&s.era>=2&&s.fields[idx].farm&&s.fields[idx].soil<55){
+      for(let n=0;n<6;n++){const xx=x+(rand()-.5)*65,yy=y+(rand()-.5)*31;line(c,[[xx-5,yy-4],[xx,yy],[xx+7,yy+2]],"#926d5399",1.5);}
+    }
+    if(layer==="risk"&&idx>=0){const f=s.fields[idx],severity=s.era===0?(s.turn%4===3?.7:.24):s.era===1?RiverGame.sites[idx].flood*(f.levee?.32:1):s.era===2?Math.max(.1,1-f.soil/100):Math.min(.85,s.water[RiverGame.sites[idx].reach]/50);poly(c,pts,"rgba(176,86,47,"+(.12+severity*.46)+")");}
+    c.restore();
+    if(cell.village){
+      if(s.era===0){camp(c,x-14,y-2,.93);camp(c,x+12,y+2,.78);camp(c,x-6,y+12,.66);oval(c,x+7,y+8,3,1.5,"#d6ac64");}
+      else{house(c,x-14,y-4,.8,s.era);house(c,x+9,y-2,.9,s.era);house(c,x-7,y+11,.8,s.era);if(s.era>1)mill(c,x+23,y+3,.7);}
+    }else if(idx>=0){
+      const f=s.fields[idx];if(f.farm)field(c,cell,f,s,rand);
+      else for(let n=0;n<13;n++)reeds(c,x+(rand()-.5)*56,y+(rand()-.5)*24,.55+rand()*.55,rand);
+      if(f.store)house(c,x-20,y-6,.82,s.era,true);
+    }else if(!wet){
+      const count=cell.near?Math.floor(rand()*3):3+Math.floor(rand()*4);
+      const objects=[];for(let n=0;n<count;n++)objects.push([x+(rand()-.5)*53,y+(rand()-.5)*24]);
+      objects.sort((a,b)=>a[1]-b[1]);for(const [xx,yy] of objects){
+        const scale=.55+rand()*.53;if(col>5&&row<4||col<2&&row>3)pine(c,xx,yy,scale);else wood(c,xx,yy,scale,(col+row)%3,rand);
+      }
+      if(cell.near)for(let n=0;n<4;n++)reeds(c,x+(rand()-.5)*61,y+(rand()-.5)*25,.6+rand()*.3,rand);
+    }
+  }
+  function background(c){
+    const grad=c.createLinearGradient(0,0,W,H);grad.addColorStop(0,"#e5e8d3");grad.addColorStop(.58,"#d8dfc6");grad.addColorStop(1,"#e6e3c9");
+    c.fillStyle=grad;c.fillRect(-1100,-750,3300,2000);
+    for(let n=0;n<18;n++){c.beginPath();c.moveTo(-100,20+n*19);c.bezierCurveTo(170,5+n*18,125,-70+n*17,465,-25+n*3);c.strokeStyle="#bdc9a659";c.lineWidth=1;c.stroke();}
+    for(let n=0;n<10;n++){c.beginPath();c.moveTo(650+n*3,510);c.bezierCurveTo(720+n*7,425,825+n*7,500,1030,408+n*7);c.strokeStyle="#b4c3a545";c.stroke();}
+    oval(c,514,300,435,139,"#75846c13");oval(c,510,340,391,107,"#75846c0e");
+  }
+  function tag(c,cell,s,selected,layer){
+    const i=cell.idx,f=s.fields[i],site=RiverGame.sites[i],chosen=i===selected,active=chosen||i===hover;
+    let label=site.name;
+    if(layer==="risk")label+=" · "+(s.era===0?"采"+RiverGame.actionSpec(s,i,"gather").hint.match(/\d+/)[0]:s.era===1?"洪损"+Math.round(site.flood*(f.levee?.32:1)*100)+"%":s.era===2?"地力"+f.soil:"污染"+s.water[site.reach]);
+    const tagScale=Math.min(2.4,Math.max(1,10.5/(15*view.scale)));
+    c.font=(chosen?"600 ":"")+(15*tagScale)+"px 'Microsoft YaHei', sans-serif";
+    const w=c.measureText(label).width+22*tagScale,height=25*tagScale,x=cell.x-w/2,y=cell.y+19;
+    const pts=corners.map(([u,v])=>[cell.x+u*.97,cell.y+v*.97]);
+    poly(c,pts,chosen?"#fff1a510":null,active?"#f9df8b":"#f4efbdad",active?3:1.4);
+    c.beginPath();c.roundRect(x,y,w,height,6*tagScale);c.fillStyle=chosen?"#284835":layer==="risk"?"#f3e6c8":"#f8f4df";c.fill();c.strokeStyle=chosen?"#e2c577":"#9da883";c.lineWidth=1.4*tagScale;c.stroke();
+    oval(c,x+8*tagScale,y+height/2,2.3*tagScale,2.3*tagScale,chosen?"#e7c876":f.farm?"#9e823d":"#718866");
+    c.textBaseline="middle";c.textAlign="left";c.fillStyle=chosen?"#fff6d9":"#40553e";c.fillText(label,x+14*tagScale,y+height/2+.5);
+    labels.push({x,y,w,h:height,idx:i});
+  }
+  function frame(){
+    needsDraw=false;const {state,selected,layer}=read(),rect=canvas.getBoundingClientRect();
+    if(!rect.width||!rect.height)return;
+    const dpr=Math.min(window.devicePixelRatio||1,2),width=Math.round(rect.width*dpr),height=Math.round(rect.height*dpr);
+    if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}
+    const c=canvas.getContext("2d"),scale=Math.min(rect.width/W,rect.height/H)*zoom;
+    const x=(rect.width-W*scale)/2+panX,y=(rect.height-H*scale)/2+panY;view={x,y,scale};
+    c.setTransform(dpr,0,0,dpr,0,0);c.fillStyle="#dce2cd";c.fillRect(0,0,rect.width,rect.height);
+    c.translate(x,y);c.scale(scale,scale);c.lineJoin="round";c.lineCap="round";background(c);
+    for(const cell of cells)ground(c,cell,state,layer);
+    labels.length=0;for(const cell of cells)if(cell.idx>=0)tag(c,cell,state,selected,layer);
+  }
+  function draw(){if(!needsDraw){needsDraw=true;requestAnimationFrame(frame);}}
+  function at(e){
+    if(!view)return -1;const rect=canvas.getBoundingClientRect(),x=(e.clientX-rect.left-view.x)/view.scale,y=(e.clientY-rect.top-view.y)/view.scale;
+    const label=labels.find(l=>x>=l.x&&x<=l.x+l.w&&y>=l.y&&y<=l.y+l.h);if(label)return label.idx;
+    for(let j=cells.length-1;j>=0;j--){const cell=cells[j],u=Math.abs(x-cell.x)/(dx/2),v=Math.abs(y-cell.y)/dy;if(u<=1&&v<=1-u*.5)return cell.idx;}
+    return -1;
+  }
+  function limitPan(){const rect=canvas.getBoundingClientRect(),factor=.09+Math.max(0,zoom-1)*.55;panX=Math.max(-rect.width*factor,Math.min(rect.width*factor,panX));panY=Math.max(-rect.height*factor,Math.min(rect.height*factor,panY));}
+  function changeZoom(dir){if(dir==="home"){zoom=1;panX=panY=0;}else zoom=Math.max(.85,Math.min(1.85,zoom+(dir==="in"?.2:-.2)));limitPan();draw();}
+  canvas.addEventListener("pointerdown",e=>{if(e.button!==0)return;pressed={id:e.pointerId,x:e.clientX,y:e.clientY,px:panX,py:panY,drag:false};canvas.setPointerCapture(e.pointerId);});
+  canvas.addEventListener("pointermove",e=>{
+    if(pressed&&pressed.id===e.pointerId){const a=e.clientX-pressed.x,b=e.clientY-pressed.y;if(Math.abs(a)+Math.abs(b)>5)pressed.drag=true;
+      if(pressed.drag){panX=pressed.px+a;panY=pressed.py+b;limitPan();canvas.classList.add("grabbing");draw();}}
+    else{const index=at(e);if(index!==hover){hover=index;canvas.style.cursor=index>=0?"pointer":"grab";draw();}}
+  });
+  canvas.addEventListener("pointerup",e=>{if(!pressed||pressed.id!==e.pointerId)return;const tap=!pressed.drag;pressed=null;canvas.classList.remove("grabbing");if(tap){const i=at(e);if(i>=0)pick(i);} });
+  canvas.addEventListener("pointercancel",()=>{pressed=null;canvas.classList.remove("grabbing");});
+  canvas.addEventListener("pointerleave",()=>{if(hover>=0){hover=-1;draw();}});
+  canvas.addEventListener("wheel",e=>{if(e.ctrlKey)return;e.preventDefault();changeZoom(e.deltaY<0?"in":"out");},{passive:false});
+  new ResizeObserver(draw).observe(canvas);return {draw,changeZoom};
+}
+</script>
+<script id="interface">
+"use strict";
+(() => {
+  const G=RiverGame,$=id=>document.getElementById(id),saveKey="rice-river.four-eras.mini.v1";
+  const esc=value=>String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+  let state=G.fresh(),checkpoint=G.copy(state),selected=0,layer="land",overlay="",lastFocus=null,canSave=true,notice="";
+  function valid(s){return !!(s&&s.version===1&&Number.isInteger(s.era)&&s.era>=0&&s.era<4&&Number.isInteger(s.turn)&&s.turn>=0&&
+    Array.isArray(s.fields)&&s.fields.length===4&&s.fields.every(f=>f&&Number.isFinite(f.soil)&&Number.isFinite(f.pressure))&&
+    Number.isFinite(s.stock)&&Number.isFinite(s.reserve)&&s.reserve>=0&&s.reserve<=s.stock&&s.flags&&s.got&&s.ledger&&
+    Array.isArray(s.log)&&Array.isArray(s.water)&&s.water.length===3&&(!s.pending||Object.hasOwn(G.events,s.pending)));}
+  try {const stored=JSON.parse(localStorage.getItem(saveKey));if(stored&&valid(stored.current)&&valid(stored.checkpoint)){
+    state=stored.current;checkpoint=stored.checkpoint;selected=Number.isInteger(stored.selected)&&G.sites[stored.selected]?stored.selected:0;
+  }} catch {canSave=false;}
+  function save(){try{localStorage.setItem(saveKey,JSON.stringify({current:state,checkpoint,selected}));canSave=true;}catch{canSave=false;}}
+  const atlas=makeRiverMap($("map"),()=>({state,selected,layer}),chooseField);
+  function drawIcons(){
+    for(const canvas of document.querySelectorAll("canvas[data-icon]")){
+      if(canvas.dataset.painted)continue;canvas.dataset.painted="1";canvas.width=canvas.height=52;const c=canvas.getContext("2d");
+      c.scale(2,2);c.lineCap="round";c.lineJoin="round";c.strokeStyle=getComputedStyle(canvas).color;c.fillStyle=c.strokeStyle;c.lineWidth=1.5;
+      const path=points=>{c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke();};
+      const oval=(x,y,rx,ry,a=0)=>{c.beginPath();c.ellipse(x,y,rx,ry,a,0,Math.PI*2);c.stroke();};
+      switch(canvas.dataset.icon){
+        case "wheat":path([[6,23],[19,4]]);for(let j=0;j<3;j++){oval(9+j*3,17-j*4,1.6,3.2,-.60);oval(13+j*3,17-j*4,1.6,3.4,.94);}break;
+        case "store":path([[3,10],[13,3],[23,10],[3,10]]);path([[6,10],[6,22],[20,22],[20,10]]);path([[11,22],[11,15],[15,15],[15,22]]);break;
+        case "seed":oval(12,14,4.5,8,.64);path([[8,20],[15,10]]);break;
+        case "people":oval(11,9,3.4,3.5);path([[4,21],[5,17],[8,15],[14,15],[17,18],[17,21]]);path([[17,7],[19,8],[19,11],[17.5,12]]);path([[19,15],[22,18],[22,21]]);break;
+        case "work":path([[5,23],[18,5]]);path([[12,5],[18,4],[23,9]]);path([[5,14],[10,17],[9,21],[5,23],[3,20],[5,14]]);break;
+        case "book":path([[3,5],[8,5],[13,7],[18,5],[23,5],[23,20],[17,20],[13,22],[8,20],[3,20],[3,5]]);path([[13,7],[13,22]]);break;
+      }
+    }
+  }
+  const icon=(name)=>'<span class="icoBox" aria-hidden="true"><canvas class="ico" data-icon="'+name+'"></canvas></span>';
+  function metric(name,id,value,unit,title){return '<div class="resource" title="'+esc(title)+'">'+icon(id)+'<div><small>'+name+'</small><strong>'+value+'</strong><span class="unit">'+unit+'</span></div></div>';}
+  function actionButton(id){
+    const a=G.actionSpec(state,selected,id),price=[a.grain?a.grain+" 粮":"",a.work?a.work+" 工":"",id==="farm"?"2 种":""].filter(Boolean).join(" / ");
+    const detail=a.why||price||a.hint;
+    return '<button class="action" data-act="'+id+'" '+(a.why?"disabled ":"")+'title="'+esc(a.hint+(a.why?" · "+a.why:""))+'">'+a.label+(detail?'<small>'+esc(detail)+'</small>':'')+'</button>';
+  }
+  function actionsFor(){
+    const f=state.fields[selected],list=[];
+    if(!f.farm)list.push("farm");
+    if(state.era===0||!f.farm||G.freeGrain(state)<state.pop*2)list.push("gather");
+    if(state.reserve<G.seedNeed(state)||state.era===0)list.push("reserve");
+    if(state.got.dry&&!state.fields.some(p=>p.store))list.push("store");
+    if(f.farm&&state.era===1&&!f.levee)list.push("levee");
+    if(f.farm&&state.era>=2){
+      if(state.era===2&&!f.terrace)list.push("terrace");
+      if(state.era===2&&!f.rotation)list.push("rotation");
+      if(state.era===2)list.push("compost");
+      if(state.era===3){
+        if(!state.fields.some(p=>p.station))list.push("station");
+        if(f.input!=="precise")list.push("precise");
+        if(!f.ditch)list.push("ditch");
+        list.push("boost");
+      }
+    }
+    if(f.farm&&state.era>=1&&state.got.scout)list.push("patrol");
+    return list;
+  }
+  function techCard(t,tree=false){
+    const why=G.researchReason(state,t),req=t.requires.length?"前置 "+t.requires.map(id=>G.techById[id].name).join(t.any?" 或 ":"、"):"起始技术";
+    return '<div class="techline"><div><strong>'+t.name+'</strong><small>'+t.effect+(tree?" "+req+"。":"")+'</small></div><button class="techBtn" data-study="'+t.id+'" '+(why?"disabled ":"")+'title="'+esc(why||("消耗 "+t.cost+" 农学点和 1 工日"))+'">'+esc(why||(t.cost+" 点 · 研究"))+'</button></div>';
+  }
+  function render(){
+    const e=G.ages[state.era],p=G.sites[selected],f=state.fields[selected];
+    $("timeline").innerHTML=G.ages.map((age,i)=>'<span class="epoch '+(i===state.era?"here":i<state.era?"past":"")+'"><i></i>'+age.short+'</span>').join("");
+    $("resources").innerHTML=metric("统一粮仓","store",state.stock,"份","其中 "+state.reserve+" 份已留种，可支配 "+G.freeGrain(state)+" 份")+
+      metric("已留种粮","seed",state.reserve,"份","下次春播每田需要 2 份种粮")+
+      metric("聚落人口","people",state.pop,"人","每人每季需 1 份口粮。当前组织度 "+state.trust)+
+      metric("本季工日","work",G.freeWork(state),"/ "+G.labor(state),"各项农事、建设和研究共用工日")+
+      metric("农业知识","book",state.knowledge,"点","每季获得 1 点，获得收成再得 1 点");
+    $("chapterNo").textContent="时代 "+e.numeral+" / Ⅳ";$("season").textContent=G.date(state);
+    $("chapterName").textContent=e.name;$("chapterRisk").textContent="主线危机 · "+e.threat;
+    $("goals").innerHTML=G.goals(state).map(([done,label])=>'<li class="'+(done?"done":"")+'"><span class="mark" aria-label="'+(done?"已完成":"待完成")+'">'+(done?"✓":"○")+'</span>'+label+'</li>').join("");
+    const tight=G.freeGrain(state)<state.pop;
+    $("forecast").textContent=(tight&&!state.ended?"口粮吃紧，可采集或在账簿中动用种粮。 ":"")+G.forecast(state);
+    $("forecast").className="outlook"+(state.pending||tight?" hot":"");
+    $("research").innerHTML=G.techs.filter(t=>t.era===state.era).map(t=>techCard(t)).join("");
+    $("advance").innerHTML=state.ended?"查看结局":state.pending?"处理本季危机　→":"结算本季 · 入"+G.seasons[(state.turn+1)%4]+'<span aria-hidden="true">→</span>';
+    $("fieldTitle").innerHTML=p.name+'<span class="fieldType">'+p.terrain+'</span>';
+    $("fieldSelect").value=String(selected);
+    const crop=f.due!==null?"在田 · "+G.seasons[f.due%4]+"收":f.farm?"待春播":"尚未开垦";
+    const built=[f.store?"备荒粮仓":"",f.levee?"田堤":"",f.terrace?"梯田":"",f.rotation?"稻豆轮作":"",f.station?"农机服务站":"",f.ditch?"净水沟":"",f.input==="precise"?"精准水肥":f.input==="boost"?"高投入":""].filter(Boolean);
+    const facts=[crop,"地力 <b>"+f.soil+"</b>",state.era===1?"洪损风险 <b>"+Math.round(p.flood*(f.levee?.32:1)*100)+"%</b>":state.era===3?"河段污染 <b>"+state.water[p.reach]+"</b>":"地势 <b>"+["低洼","低岸","台地","岗地","高坡"][p.height]+"</b>"];
+    if(f.farm&&state.era>=1)facts.push("病害压力 <b>"+f.pressure+"</b>");
+    if(built.length)facts.push(built.join(" · "));
+    $("fieldFacts").innerHTML=facts.map(v=>"<span>"+v+"</span>").join("");
+    $("fieldActions").innerHTML=state.ended?"":actionsFor().map(actionButton).join("");
+    const last=f.last?"上茬实收 "+f.last.amount+" 份"+(f.last.loss?"，灾害额外减产 "+f.last.loss+"%":"")+"。":"";
+    $("fieldNote").textContent=last+(f.due!==null?"本茬预计 "+G.output(state,selected)+" 份，收获时自动留 2 份种粮。":f.farm?"春播每田从已留种粮取 2 份，秋收。":"春夏可开田，当年秋收。此处本季采集可得 "+G.actionSpec(state,selected,"gather").hint.replace("得 ","")+"。");
+    $("mapCaption").textContent=layer==="risk"?e.threat+" · 田区风险":"点地名选田 · "+G.seasons[state.turn%4]+"季";
+    document.querySelectorAll("[data-layer]").forEach(el=>{const on=el.dataset.layer===layer;el.classList.toggle("on",on);el.setAttribute("aria-pressed",String(on));});
+    $("journal").innerHTML=state.log.slice(0,4).map(l=>'<div class="entry"><time>'+esc(l.date)+'</time>'+esc(l.text)+'</div>').join("");
+    $("saveStatus").innerHTML=(canSave?"本地已存档":"进度仅在本次打开期间保留")+'　<button class="textBtn" data-ui="ledger">粮仓账簿</button>';
+    $("feedback").textContent=notice;drawIcons();atlas.draw();
+  }
+  function chooseField(i){if(overlay||!G.sites[i])return;selected=i;notice="";save();render();}
+  function option(label,detail,attr,disabled=false){return '<button class="option" '+attr+(disabled?" disabled":"")+'><strong>'+esc(label)+'</strong><small>'+esc(detail)+'</small></button>';}
+  function openDialog(type){
+    if(!overlay)lastFocus=document.activeElement;overlay=type;
+    let kicker="",title="",body="",buttons="";
+    if(type==="event"){
+      const ev=G.events[state.pending];kicker=G.date(state)+" · "+G.ages[state.era].name;title=ev.name;body="<p>"+ev.text+"</p>";
+      for(const o of ev.options){
+        const why=G.reason(state,o.work,o.grain),cost=[o.work?o.work+" 工日":"",o.grain?o.grain+" 份粮":""].filter(Boolean).join("、");
+        buttons+=option(o.name,o.detail+(cost?" 消耗 "+cost+"。":"")+(why?" "+why+"。":""),'data-event="'+o.id+'"',!!why);
+      }
+    }else if(type==="arrival"){
+      const e=G.ages[state.era];kicker="迈入时代 "+e.numeral;title=e.name;body="<p>"+e.task+"</p><p>河谷已有 "+G.farmCount(state)+" 块耕田，结转 "+state.stock+" 份粮，组织度 "+state.trust+"。</p>";
+      buttons=option("继续经营","查看本时代的农事和科技。",'data-ui="close"');
+    }else if(type==="end"){
+      const win=state.ended==="现代农业建成";kicker=G.date(state)+" · 聚落纪年";title=state.ended;
+      body="<p>"+(win?"从野生稻的第一把种子，到能在疫病后稳产的现代农田，你的聚落走完了四个时代。":state.ended==="连续两季断粮"?"连续两季没有发出口粮。可以在粮仓账簿中核对收成、支出与封存的种粮。":state.ended==="聚落解体"?"持续的口粮缺口耗尽了组织度。":"缺粮使聚落人口降到零。")+"</p><p>"+state.pop+" 人 · "+state.stock+" 份粮（留种 "+state.reserve+"）· 下游污染 "+state.water[2]+" · 组织度 "+state.trust+"</p>";
+      if(!win)buttons+=option("从本时代开头重试","恢复进入这一时代时的田地、技术和储粮。",'data-ui="retry"');
+      buttons+=option("回看河谷","保留本局记录。",'data-ui="close"');
+    }else if(type==="tree"){
+      kicker="农业知识 "+state.knowledge+" 点 · 可用 "+G.freeWork(state)+" 工日";title="农业科技树";
+      body=G.ages.map((age,i)=>'<div class="treeEra"><h3>'+age.numeral+" · "+age.name+'</h3>'+G.techs.filter(t=>t.era===i).map(t=>techCard(t,true)).join("")+'</div>').join("");
+      buttons=option("回到河谷","查看科技能用于哪些田地。",'data-ui="close"');
+    }else if(type==="ledger"){
+      kicker=G.date(state);title="粮仓账簿";
+      const a=state.report,rows=[["当前库存",state.stock+" 份"],["其中留种",state.reserve+" 份"],["可支配粮",G.freeGrain(state)+" 份"],["本季口粮需求",state.pop+" 份"],["聚落组织度",state.trust+" / 100"]];
+      if(a)rows.push(["上季期初",a.opening+" 份"],["采集与副业 / 农田收获","+"+a.wild+" / +"+a.harvest],["播种 / 公共支出","−"+a.seed+" / −"+a.project],["受灾损失 / 发放口粮","−"+a.damage+" / −"+a.ration],["上季结余",a.closing+" 份"]);
+      body='<div class="ledger"><dl>'+rows.map(([k,v])=>"<dt>"+k+"</dt><dd>"+v+"</dd>").join("")+'</dl></div><p>留种占用库存。口粮不足时，可以把种粮重新用于本季发放。</p>';
+      if(!state.ended)body+='<div class="actions">'+actionButton("reserve")+actionButton("release")+'</div>';
+      buttons=option("回到河谷","继续当季经营。",'data-ui="close"');
+    }else if(type==="reset"){
+      kicker="重新扎营";title="开启新聚落？";body="<p>新局将替换这次试玩进度，从没有耕田的原始采集时代开始。</p>";
+      buttons=option("继续当前聚落","回到现在的河谷。",'data-ui="close"')+option("开始新局","重新生成初始聚落和时代检查点。",'data-ui="new"');
+    }else{
+      kicker="四时代离线试玩";title="在江畔扎营";
+      body="<p>每次结算经过一个季节。先研究「留种试种」，选田区留种 2 份，再建试种圃。春夏开田、秋季收获。冬天采集少，记得留口粮。</p><p>每人每季吃 1 份粮。留种仍在粮仓中，春播每田要 2 份。各田共用工日，推进季节后恢复。连续两季零口粮、组织度耗尽或人口归零会结束本局。</p><p>点地名或田面切换田区。地图可拖动、缩放，也可用数字 1–4 选地。查看「灾情」能比较各田当前风险。</p><p>完成时代目标会自动进入下一章。每章开头留有重试点，关卡会检查实际收成、复耕、地力与水质。</p>";
+      buttons=option("回到河谷","沿用当前聚落进度。",'data-ui="close"');
+    }
+    $("dialog").innerHTML='<small class="eyebrow">'+esc(kicker)+'</small><h2 id="dialogTitle">'+esc(title)+'</h2>'+body+'<div class="choices">'+buttons+'</div>';
+    $("shade").hidden=false;$("dialog").querySelector("button:enabled")?.focus({preventScroll:true});
+  }
+  function closeDialog(){overlay="";$("shade").hidden=true;if(lastFocus?.isConnected)lastFocus.focus({preventScroll:true});}
+  function afterSeason(oldEra){
+    if(state.era!==oldEra)checkpoint=G.copy(state);
+    const r=state.report;
+    notice=state.pending?"危机等待决策。":r?r.period+"结算 · 实发 "+r.ration+" / "+r.demand+" 份口粮，仓余 "+r.closing+" 份。":"";
+    save();render();
+    if(state.pending)openDialog("event");else if(state.ended)openDialog("end");else if(state.era!==oldEra)openDialog("arrival");
+  }
+  function commit(message,success,refreshOverlay=""){
+    notice=message||success;if(!message)save();render();if(refreshOverlay)openDialog(refreshOverlay);
+  }
+  $("fieldSelect").innerHTML=G.sites.map((place,i)=>'<option value="'+i+'">'+place.name+'</option>').join("");
+  $("fieldSelect").addEventListener("change",e=>chooseField(Number(e.target.value)));
+  document.addEventListener("click",e=>{
+    const b=e.target.closest("button");if(!b||b.disabled||(overlay&&!b.closest("#dialog")))return;
+    if(b.dataset.layer){layer=b.dataset.layer;render();return;}
+    if(b.dataset.zoom){atlas.changeZoom(b.dataset.zoom);return;}
+    if(b.dataset.study){const t=G.techById[b.dataset.study];commit(G.research(state,t.id),"已掌握"+t.name+"。"+t.effect,overlay);return;}
+    if(b.dataset.act){const id=b.dataset.act,a=G.actionSpec(state,selected,id);commit(G.act(state,selected,id),a.label+" · "+a.hint+"。",overlay);return;}
+    if(b.dataset.event){const oldEra=state.era,err=G.respond(state,b.dataset.event);if(err){notice=err;render();return;}closeDialog();afterSeason(oldEra);return;}
+    const ui=b.dataset.ui;if(!ui)return;
+    if(ui==="advance"){if(state.ended){openDialog("end");return;}const oldEra=state.era;G.advance(state);afterSeason(oldEra);return;}
+    if(ui==="close"){closeDialog();return;}
+    if(ui==="new"||ui==="retry"){state=ui==="retry"?G.copy(checkpoint):G.fresh();if(ui==="new")checkpoint=G.copy(state);selected=0;layer="land";notice="";closeDialog();atlas.changeZoom("home");save();render();return;}
+    openDialog(ui);
+  });
+  document.addEventListener("keydown",e=>{
+    if(overlay){
+      if(e.key==="Escape"&&overlay!=="event"){e.preventDefault();closeDialog();return;}
+      if(e.key==="Tab"){const controls=Array.from($("dialog").querySelectorAll("button:enabled"));if(!controls.length)return;
+        if(e.shiftKey&&document.activeElement===controls[0]){e.preventDefault();controls.at(-1).focus();}else if(!e.shiftKey&&document.activeElement===controls.at(-1)){e.preventDefault();controls[0].focus();}}
+      return;
+    }
+    if(e.altKey||e.ctrlKey||e.metaKey||e.target.closest("select,input,textarea"))return;
+    if(/^[1-4]$/.test(e.key)){e.preventDefault();chooseField(Number(e.key)-1);}
+  });
+  save();render();if(state.pending)openDialog("event");else if(state.ended)openDialog("end");
+})();
+</script>
+</body>
+</html>
