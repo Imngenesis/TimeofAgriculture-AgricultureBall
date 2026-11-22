@@ -193,6 +193,7 @@ func game_view():
 	refs.roadpay=btn("确认铺路","street_confirm",null,true);streetrow.add_child(refs.roadpay)
 	streetrow.add_child(btn("结束","street_end"))
 	var message=U.panel(stage,0.5,1,0.5,1,Rect2i(-312,-113,312,-80),Color(0.09,0.13,0.11,0.91))
+	message.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	var ml=U.label("",14,U.TEXT);ml.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	message.add_child(ml);refs.message=ml;refs.msgbox=message
 	var guide=U.box(false,5);stage.add_child(guide);U.rect(guide,0,1,0,1,Rect2i(19,-50,260,-22))

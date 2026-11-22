@@ -118,7 +118,8 @@ func ticks(count: int):
 func choose_cell(id: int):
 	if failed: return
 	game.world.focus(id)
-	await frames(18)
+	# The camera eases in real time. Wait for the cell to clear the side panels at any frame rate.
+	while game.world.camera_point.distance_to(game.world.destination)>0.20: await frames(1)
 	var position=game.world.camera.unproject_position(V.v3(V.center(id)))
 	if not check(game.world.pick(position)==id,"map picking "+str(id)): return
 	click(position)
@@ -170,6 +171,7 @@ func build(kind: String,id: int):
 	await raise_food(S.BUILD[kind][2],inputs[0],inputs[1])
 	await tap("panel","build")
 	await tap("tool",kind)
+	if not check(game.world.build_tool==kind,"selected construction tool "+kind+" in "+game.hud.panel_key): return
 	await choose_cell(id)
 	check(game.world.build_tool=="" and game.world.selected==id,"placed "+kind+" at "+str(id)+" "+game.hud.toast)
 
