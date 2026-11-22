@@ -7,8 +7,8 @@ $root = $PSScriptRoot
 $project = Join-Path $root "desktop"
 $windows = Join-Path $root "Windows"
 $dist = Join-Path $root "dist"
-$output = Join-Path $windows "稻生江畔.exe"
-$pack = Join-Path $windows "稻生江畔.pck"
+$output = Join-Path $windows "百谷长青.exe"
+$pack = Join-Path $windows "百谷长青.pck"
 
 New-Item -ItemType Directory -Force -Path $windows, $dist | Out-Null
 $version = (& $Godot --version | Out-String).Trim()

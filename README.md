@@ -1,10 +1,12 @@
-# 稻生江畔
+# 百谷长青 V1.10
 
-**[下载 V1.00 正式版 · Windows x64](https://github.com/Imngenesis/TimeofAgriculture-AgricultureBall/releases/download/v1.0.0/RiceByTheRiver-Windows-x64.zip)**。完整解压，双击「稻生江畔.exe」即可离线游玩。[正式版发行说明](https://github.com/Imngenesis/TimeofAgriculture-AgricultureBall/releases/tag/v1.0.0)
+**[进入网页版](https://imngenesis.github.io/TimeofAgriculture-AgricultureBall/)**　·　[下载 Windows x64 试玩包](https://github.com/Imngenesis/TimeofAgriculture-AgricultureBall/raw/refs/heads/main/dist/RiceByTheRiver-Windows-x64.zip)
 
-带十名居民从采集走向现代农业。你可以把雨季的口粮拿去招募，留下来育种，也可以换成把农专接到第一块田的木料。每季 40 个游戏秒，可随时暂停派工。
+从十人的采集营地出发，经过四个时代，最终由农学院与农机学院合建中国农业大学。点击「开始新战役」选择生态和难度。首次发现作物、品种或进入新时代时会打开介绍。天气影响收成，提前防护可以减轻天灾损失。牧场需要道路、牧工和饲料，蛋奶可补充口粮，厩肥能养护附近农田。
 
-![游戏中从农专规划第一条田间路，落定前可看到木石报价](docs/release-road.jpg)
+请使用支持 WebGL 2 的桌面浏览器，以鼠标和键盘游玩。使用相同浏览器和网址可继续本机的战役。Windows 包需完整解压后启动「百谷长青.exe」。
+
+本次源码和 Windows 候选包取自提供的 V1.10 交接包。网页版采用同一 Godot 工程，另含中文字体及单线程 Web 导出预设。用 Godot 4.7.2 和配套 Web 模板，在仓库根目录创建 `web-build` 后运行 `godot --headless --path desktop --export-release Web ../web-build/index.html`。将导出的全部文件连同 licenses/ 放在同一静态站点，部署分支为 gh-pages。
 
 ## 第一块田
 
@@ -40,7 +42,7 @@
 - **研究**按课题一次性扣除点数和所列的粮、种、木、石，投入 16 至 40 人秒完成。点数与未领取札记共用案藏容量，一级农专开局合计 9 点。升时代和扩建农专能增加容量。
 - **仓储**按地点结算。营地有 48 份口粮仓容，外圩各有 24，每级接通的当地粮仓加 36。种仓随连通农田和粮仓增加，木石料仓也随当地粮仓扩容。货单预占目的地相应仓位。照料的增产逐步递减，野粮每季有采集上限。
 - **拓殖**需要两名空闲居民、4 粮和 1 木。32 秒后探险队带回种源。三处外圩各有独立仓库，道路连上农专后，当地居民才能正常生产。小径每批运 4 份，连续道路每批 8 份。可运粮、种、木、石、饲料，也可迁移居民。
-- **养殖**可引入鸡、山羊，繁育后收取蛋奶，并用厩肥养地。营地畜栏通路才正常生产。滨海河口另有淡水账，十人携 22 水登陆，集雨池每季多收 6 水。
+- **养殖**可引入鸡、山羊，繁育后收取蛋奶，并用厩肥养地。牧场须连接农专并有牧工到岗。滨海河口另有淡水账，十人携 22 水登陆，集雨池每季多收 6 水。
 - **难度与晋阶**。丰年、常年、荒年的开局口粮为 42 / 30 / 24，秋收系数为 115% / 100% / 88%。前三次晋阶分别缴 12 / 20 / 32 粮，同时满足建设、科技和生存条件。四时代每田基础加成为 0 / 2 / 5 / 8，每季常规时代事务费为 0 / 2 / 5 / 8。汛情与梅雨按农时到来，其余危机由技术的实际使用引发。
 
 ## 存档与开发
@@ -57,7 +59,7 @@
 
 ```powershell
 $out = Join-Path $env:TEMP ("rice-lesson-" + [guid]::NewGuid())
-& '.\Windows\稻生江畔.exe' --resolution 1280x720 -- "--test-output=$out" --formal-test | Out-Null
+& '.\Windows\百谷长青.exe' --resolution 1280x720 -- "--test-output=$out" --formal-test | Out-Null
 Get-Content -LiteralPath (Join-Path $out 'verification.txt')
 ```
 
