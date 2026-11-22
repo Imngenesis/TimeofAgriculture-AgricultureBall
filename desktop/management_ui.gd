@@ -20,11 +20,12 @@ static func workforce(h,v):
 	for w in s.workers:
 		if w.job!="" and w.travel>0: walking+=1
 	var row=U.box(false,6);v.add_child(row)
-	U.metric(row,"人口 / 床位","%d / %d" % [s.pop,T.beds(s)])
+	U.metric(row,"营地 / 床位","%d / %d" % [s.pop,T.beds(s)])
 	U.metric(row,"空闲",str(m.free_workers()),U.GREEN)
 	U.metric(row,"在岗",str(s.pop-m.free_workers()-walking))
 	U.metric(row,"赴任",str(walking))
 	v.add_child(U.label("幸福 %d　组织 %d　上季人口 %+d　每季口粮 %d" % [s.happiness,s.organization,s.pop_change,s.pop],14,U.DIM))
+	v.add_child(U.label("聚落总人口 %d　营外 %d　留给返程居民的床位 %d" % [m.F.people_total(s),m.F.people_total(s)-s.pop,m.F.incoming(s)],14,U.GOLD,true))
 	recruit_button(h,v)
 	var vacancies=m.vacancies()
 	var fill=h.btn("向 %d 个缺工岗位补派人手" % vacancies.size(),"fill")
@@ -72,12 +73,13 @@ static func balance(h,v):
 	U.metric(row,"木料",str(s.wood))
 	U.metric(row,"石料",str(s.stone))
 	var tabs=U.box(false,5);v.add_child(tabs)
-	for item in [["budget","本季预算"],["market","料场与换货"],["history","历季账簿"]]:
+	for item in [["budget","本季预算"],["market","料场与换货"],["stocks","库存与水务"],["history","历季账簿"]]:
 		var tab=h.btn(item[1],"economy_tab",item[0],h.economy_tab==item[0])
 		tab.size_flags_horizontal=Control.SIZE_EXPAND_FILL;tabs.add_child(tab)
 	match h.economy_tab:
 		"budget": budget(h,v)
 		"market": market(h,v)
+		"stocks": preload("res://frontier_ui.gd").inventory(h,v)
 		"history": history(h,v)
 
 static func budget(h,v):
@@ -87,7 +89,7 @@ static func budget(h,v):
 	var crop=0
 	if s.turn%4==2:
 		for id in m.farms():
-			if s.cells[id].crop: crop+=maxi(0,m.expected_yield(id)-2)
+			if V.sector(id)==0 and s.cells[id].crop: crop+=maxi(0,m.expected_yield(id)-2)
 	var net=s.food+crop-s.pop-costs.total
 	var balance_text="预计缺口 %d 粮" % -net if net<0 else "预计季末口粮 %d" % mini(net,T.storage(s))
 	v.add_child(U.label("%s　·　居民需 %d / 公共支出 %d" % [balance_text,s.pop,costs.total],17,U.WARN if net<0 else U.GREEN,true))
@@ -132,6 +134,7 @@ static func history(h,v):
 	chart.custom_minimum_size.y=98
 	chart.mouse_filter=Control.MOUSE_FILTER_IGNORE;v.add_child(chart)
 	var b=s.last_ledger
+	v.add_child(U.label("畜产配给 +%d　到货 +%d　发货 −%d　农牧试种 −%d　探险 −%d\n新产蛋 %d / 奶 %d，鲜奶到期 %d" % [b.livestock,b.freight_in,b.freight_out,b.husbandry,b.explore,b.eggs,b.milk,b.dairy_loss],14,U.TEXT,true))
 	v.add_child(U.rule())
 	v.add_child(U.label("上季结算",17,U.GOLD))
 	v.add_child(U.label("野粮 +%d　秋收 +%d　售料 +%d　撤工 +%d\n发粮 −%d　公共拨付 −%d / 应付 %d　买料 −%d\n招募 −%d　拓地 −%d　工程农事 −%d　检修防御 −%d　晋阶 −%d\n播种 −%d　灾损 −%d　溢仓 −%d\n木料 +%d / −%d　石料 +%d / −%d" % [b.gather,b.crop,b.exports,b.refund,b.eat,b.operations,b.due,b.imports,b.recruit,b.land,b.build,b.maintenance,b.advance,b.sow,b.loss,b.spoil,b.wood_in,b.wood_out,b.stone_in,b.stone_out],14,U.TEXT,true))

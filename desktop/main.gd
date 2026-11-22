@@ -18,6 +18,7 @@ var acc=0.0
 var edge_job=""
 var dialog_key=""
 var before_dialog=false
+var start_region=0
 var difficulty=1
 var transfer_target=""
 var drag=false
@@ -62,9 +63,11 @@ func show_title():
 	hud.menu(not saves.read("campaign").is_empty())
 
 func start_game(restored: Dictionary={}):
-	if restored.is_empty(): sim.reset(difficulty)
+	if restored.is_empty(): sim.reset(difficulty,start_region)
 	else: sim.restore(restored)
 	difficulty=sim.s.difficulty
+	if world.terrain_region!=sim.s.frontier.region:
+		remove_child(world);world.queue_free();world=World.new();add_child(world);world.setup(sim)
 	transfer_target=""
 	paused=false;playing=true;speed=1;acc=0;edge_job="";dialog_key=""
 	world.set_menu(false)
@@ -72,7 +75,7 @@ func start_game(restored: Dictionary={}):
 	if restored.is_empty():
 		write_save("chapter");write_save("campaign")
 		select( Model.WILD[0],false)
-		hud.notify("点击右侧「＋」，先派两人采集野粮。")
+		hud.notify(Model.F.REGIONS[sim.s.frontier.region]+"已扎营。先派人去野粮采集地。")
 	elif sim.s.pending!="": open_crisis()
 	elif sim.s.outcome!="": modal("end")
 	else: hud.notify("已恢复到"+sim.date()+"。")
@@ -99,7 +102,7 @@ func close_modal():
 func open_crisis():
 	hud.panel_key=""
 	world.build_tool=""
-	var target=Model.HOME
+	var target=sim.s.frontier.home
 	if sim.s.cause.has(sim.s.pending):
 		target=sim.s.cause[sim.s.pending].tile
 	elif sim.s.pending in ["flood","rain"]:
@@ -133,12 +136,32 @@ func place(id: int,direction: int):
 	refresh(true)
 
 func command(cmd: String,arg=null):
-	if cmd not in ["new","difficulty","confirmed_new","continue","quit","settings","back","sound","fullscreen"] and not playing: return
+	if cmd not in ["new","region","difficulty","confirmed_new","continue","quit","settings","back","sound","fullscreen"] and not playing: return
 	if playing and sim.s.pending!="" and cmd!="decision": return
 	if playing and sim.s.outcome!="" and cmd not in ["retry","title","quit"]: return
 	var result=""
 	match cmd:
 		"new": modal("difficulty")
+		"region":
+			if dialog_key!="difficulty" or int(arg)<0 or int(arg)>=Model.F.REGIONS.size(): return
+			start_region=int(arg);modal("difficulty")
+		"frontier_tab": hud.frontier_tab=arg
+		"atlas_crop": hud.atlas_crop=arg
+		"load_size": hud.full_load=arg
+		"freight_place":
+			if arg[0]:
+				if arg[1]==hud.freight_to: hud.freight_to=hud.freight_from
+				hud.freight_from=arg[1]
+			else:
+				if arg[1]==hud.freight_from: hud.freight_from=hud.freight_to
+				hud.freight_to=arg[1]
+		"inventory": hud.panel_key="economy";hud.economy_tab="stocks"
+		"survey_map": hud.panel_key="frontier";hud.frontier_tab="探险"
+		"shipping_map": hud.panel_key="frontier";hud.frontier_tab="运输";hud.freight_from=0;hud.freight_to=arg
+		"site_reserve": result=sim.reserve(false,arg)
+		"frontier_action":
+			result=Model.F.action(sim,arg[0],arg[1])
+			if result=="": hud.notify(sim.s.frontier.last)
 		"difficulty":
 			if dialog_key!="difficulty" or int(arg) not in [0,1,2]: return
 			difficulty=int(arg)
@@ -247,7 +270,8 @@ func command(cmd: String,arg=null):
 			if result=="": hud.notify("码头换货完成，已登记收支。")
 		"claim":
 			result=Model.E.claim(sim.s,int(arg))
-			if result=="": hud.notify(Valley.SECTORS[int(arg)]+"已开放。")
+			if result=="":
+				hud.notify(Valley.SECTORS[int(arg)]+"已开放。")
 		"field":
 			result=sim.field_action(arg[0],arg[1])
 			if result=="": hud.notify("农事安排已生效。")

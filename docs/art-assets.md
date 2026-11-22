@@ -49,3 +49,19 @@ A single isolated mature clump of Yangtze paddy rice as a photoreal agricultural
 ```text
 A square seamless PBR albedo material texture of carefully combed reed thatch on a traditional Yangtze granary roof. The uniform dried reeds all run vertically from top to bottom, in shingled softly overlapping bundles with delicate dark grooves and frayed reed ends, warm mid-value umber, muted honey brown, decades of gentle weathering. Orthographic perpendicular macro texture scan, neutral diffuse shadowless overcast light, no directional shadows, no building outline, sky, objects, nails, text or frame. Edge-to-edge, tileable in both directions. Fine realistic scale for an isometric 3D game roof.
 ```
+
+## 六地起始生态
+
+新战役的生态选址图从这张图集中分格取样。 [查看图集](../desktop/art/atlas-habitats.png)
+
+```text
+A production game asset for a naturalist's agricultural strategy game. Exactly SIX distinct landscape paintings in a mathematically regular 3-column by 2-row contact sheet. Horizontal 3:2 overall aspect ratio. Each cell is an edge-to-edge square painting viewed from above at a gentle angle with a distant horizon in its upper third. No margins, lines, text, letters, captions or numbers anywhere. Same refined gouache on subtly textured rag paper, warm raking light, natural restrained pigments, crisply backlit highlights, individually painted ecological detail. Each cell must read as a distinct place in a thumbnail. Strictly ordered: top left the lush Yangtze floodplain with silvery narrow oxbows, willow and paddy; top middle warm ochre Sahel savanna with sparse acacias and fields of millet; top right a rolling verdant temperate Danube valley with wheat strips and patches of blue river. Bottom left Andean terraced rocky highland mountain slopes with tiny high lakes; bottom middle a blue-green tidal marine estuary opening to the sea, tidal flats, dunes and white surf; bottom right a warm Mesoamerican volcanic plateau with patchwork golden maize gardens beneath far blue mountains. No people in foreground, no UI. Six equal cells, no center hero.
+```
+
+## 种圃的六种作物
+
+种圃按顺序展示稻、粟、麦、薯、豆和玉米的植株与收获部位。 [查看图集](../desktop/art/atlas-crops.png)
+
+```text
+A beautiful original field-guide illustration atlas for an agricultural simulation. Single 3:2 horizontal sheet, SIX precisely equal square cells in a three-column by two-row arrangement with no divider, no margins between cells, no lettering anywhere. Each individual still life centered and fully contained in its own cell, breathing room. Consistent antique naturalist gouache with fine linework on a soft, lightly speckled warm ivory paper field. Legible, accurate farm crop shapes with muted greens, rust brown and honey ochre, each with a small cast shadow. Top left: delicate loose branched drooping golden rice panicles and slim grass leaves. Top middle: two club-like dense pearl millet seed heads, leaves. Top right: two unmistakable awned wheat ears on straw. Bottom left: three earthy potato tubers cutaway pale flesh, specimen stem leaves. Bottom middle: dry common bean pods split to show red and cream beans with trifoliate leaves. Bottom right: yellow maize cob partially uncovered by curled green husks, visible corn kernels. Natural history museum quality, simple specimen plates, no decorative border, no figures, no graphic symbols. All botanical content stays inset 12 percent from its cell edges.
+```

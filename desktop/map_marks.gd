@@ -22,13 +22,13 @@ func _draw():
 			var y=fposmod(i*83.9+clock*(189+i%5*23),size.y)
 			draw_line(Vector2(x,y),Vector2(x-2.8,y+8.3),Color(0.83,0.88,0.84,0.17*w.atmosphere),0.9,true)
 	if w.build_tool!="" or game.dialog_key!="": return
-	var marked=[S.HOME,S.WILD[0]]
-	if s.era>0: marked=[S.HOME]
+	var marked=[s.frontier.home,S.WILD[0]]
+	if s.era>0: marked=[s.frontier.home]
 	if w.selected>=0 and not marked.has(w.selected): marked.append(w.selected)
 	for id in game.hud.staff_alerts:
 		if not marked.has(id): marked.append(id)
 	for id in marked:
-		var p=w.camera.unproject_position(V.v3(V.center(id),1.12 if id==S.HOME else 0.79))
+		var p=w.camera.unproject_position(V.v3(V.center(id),1.12 if id==s.frontier.home else 0.79))
 		if not Rect2(12,74,size.x-24,size.y-155).has_point(p): continue
 		var name=game.sim.location_name(id)
 		if w.selected==id and game.edge_job!="": name="田堤"

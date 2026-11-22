@@ -29,6 +29,22 @@ static func supply(s: Dictionary,kind: String,amount: int):
 	s[kind]+=amount
 	s.ledger[kind+("_in" if amount>=0 else "_out")]+=absi(amount)
 
+static func warehouse(s: Dictionary,zone: int) -> Dictionary:
+	return s if zone==0 else s.frontier.posts[zone]
+
+static func book_stock(s: Dictionary,zone: int,key: String,amount: int,column: String=""):
+	if zone==0 and key in ["wood","stone"]:
+		supply(s,key,amount)
+		return
+	var bin=warehouse(s,zone)
+	bin[key]+=amount
+	if zone==0 and column!="": s.ledger[column]+=absi(amount)
+
+static func open_district(s: Dictionary,zone: int):
+	if not s.districts.has(zone): s.districts.append(zone)
+	if not s.frontier.posts.has(zone):
+		s.frontier.posts[zone]={"people":0,"food":0,"seed":0,"wood":0,"stone":0,"short":0,"spoil":0}
+
 static func inputs_reason(s: Dictionary,materials: Array) -> String:
 	if s.wood<materials[0] or s.stone<materials[1]: return "工程需 %d 木、%d 石。可到料场派工或在收支面板换货" % materials
 	return ""
@@ -70,7 +86,7 @@ static func settle(s: Dictionary):
 	if paid<due: s.organization=maxi(0,s.organization-2)
 
 static func flows(b: Dictionary) -> Array:
-	return [b.gather+b.crop+b.refund+b.exports,b.eat+b.build+b.maintenance+b.sow+b.advance+b.loss+b.spoil+b.operations+b.imports+b.recruit+b.land]
+	return [b.gather+b.crop+b.refund+b.exports+b.get("freight_in",0)+b.get("livestock",0),b.get("freight_out",0)+b.get("husbandry",0)+b.get("explore",0)+b.eat+b.build+b.maintenance+b.sow+b.advance+b.loss+b.spoil+b.operations+b.imports+b.recruit+b.land]
 
 static func trade(s: Dictionary,kind: String,buy: bool) -> String:
 	if not LOT.has(kind): return "未知货物"
@@ -93,6 +109,6 @@ static func claim(s: Dictionary,sector: int) -> String:
 	s.food-=LAND_PRICE[sector]
 	s.ledger.land+=LAND_PRICE[sector]
 	supply(s,"wood",-2)
-	s.districts.append(sector)
+	open_district(s,sector)
 	s.rev+=1
 	return ""

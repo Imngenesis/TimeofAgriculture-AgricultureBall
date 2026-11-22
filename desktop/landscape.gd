@@ -186,10 +186,10 @@ static func house(g,p: Vector3,scale_by: float,yaw: float,granary: bool=false,er
 	for j in 3: g.box(window+z*0.017+x*(j-1)*0.051,Vector3(0.016,0.19,0.022)*scale_by,REED,yaw)
 	g.finish=0
 
-static func field(g,id: int,c: Dictionary,season: int,sick: bool):
+static func field(g,id: int,c: Dictionary,season: int,sick: bool,species: String):
 	var p=V.center(id)
 	var size=0.96
-	var soil=Color("#736244") if not c.crop or season==2 else Color("#647e68")
+	var soil=Color("#736244") if not c.crop or season==2 or species!="稻" else Color("#647e68")
 	if c.terrace: soil=Color("#7e774b")
 	var local_rng=RandomNumberGenerator.new()
 	local_rng.seed=id*53+20
@@ -202,12 +202,12 @@ static func field(g,id: int,c: Dictionary,season: int,sick: bool):
 			var b=V.v3(p+Vector2(x+size*2/7,z),h)
 			var d=V.v3(p+Vector2(x,z+size*2/7),h)
 			var e=V.v3(p+Vector2(x+size*2/7,z+size*2/7),h)
-			g.finish=5 if c.crop and season!=2 else 0
+			g.finish=5 if species=="稻" and c.crop and season!=2 else 0
 			g.quad(a,b,e,d,soil.lightened(0.03*(j%2)))
-			if c.crop and season!=2:
+			if species=="稻" and c.crop and season!=2:
 				g.quad(a.lerp(b,0.05),a.lerp(b,0.30),d.lerp(e,0.33),d.lerp(e,0.08),Color("#779484").darkened(0.04*(k%3)))
 			g.finish=0
-			if c.crop:
+			if species=="稻" and c.crop:
 				var q=(a+e)*0.5
 				var plant=Color("#be994e") if season==2 else Color("#54874c")
 				if sick and (j+k)%4==0: plant=Color("#95774b")
@@ -230,7 +230,7 @@ static func field(g,id: int,c: Dictionary,season: int,sick: bool):
 		var b=V.v3(p+Vector2(-0.92,0.9),0.06)
 		g.beam(a,b,0.09,0.09,Color("#538576"),6)
 
-static func site(g,id: int,c: Dictionary,season: int,sick: bool,era: int=0):
+static func site(g,id: int,c: Dictionary,season: int,sick: bool,era: int=0,species: String="稻"):
 	var xy=V.center(id)
 	var p=V.v3(xy,0.04)
 	var rng=RandomNumberGenerator.new()
@@ -249,7 +249,7 @@ static func site(g,id: int,c: Dictionary,season: int,sick: bool,era: int=0):
 			var post=V.v3(xy+Vector2(0.75,0.12))
 			g.beam(post,post+Vector3.UP*0.65,0.034,0.025,WOOD)
 			g.box(post+Vector3(0,0.54,0),Vector3(0.29,0.14,0.055),REED,0.2)
-		"farm": field(g,id,c,season,sick)
+		"farm": field(g,id,c,season,sick,species)
 		"wood","stone": Craft.depot(g,p,c.kind)
 		"academy":
 			house(g,p+Vector3(-0.26,0,-0.18),1.10,0.13,false,era)

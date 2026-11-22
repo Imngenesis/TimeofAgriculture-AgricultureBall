@@ -40,7 +40,7 @@ func capture(label_text: String):
 	check(image!=null and image.save_png(folder.path_join(label_text+".png"))==OK,"screenshot "+label_text)
 	if label_text=="02-river-valley" and image:
 		image.save_jpg(folder.path_join("river-valley.jpg"),0.88)
-	if label_text in ["12-harvest-detail","11-modern-valley"] and image:
+	if (label_text in ["12-harvest-detail","11-modern-valley"] or label_text.begins_with("beta-")) and image:
 		image.save_jpg(folder.path_join(label_text+".jpg"),0.93)
 
 func zoom_view(button: MouseButton,count: int):
@@ -98,10 +98,10 @@ func ticks(count: int):
 		game.sim_step()
 		if sim.s.turn!=prior_turn:
 			var b=sim.s.last_ledger
-			var spent=b.build+b.maintenance+b.advance+b.eat+b.loss+b.sow+b.spoil+b.operations+b.imports+b.recruit+b.land
-			if not check(b.opening+b.gather+b.crop+b.refund+b.exports-spent==b.ending,"seasonal food ledger reconciles"): return
+			var spent=b.build+b.maintenance+b.advance+b.eat+b.loss+b.sow+b.spoil+b.operations+b.imports+b.recruit+b.land+b.husbandry+b.explore+b.freight_out
+			if not check(b.opening+b.gather+b.crop+b.refund+b.exports+b.freight_in+b.livestock-spent==b.ending,"seasonal food ledger reconciles"): return
 			var recent=sim.s.history
-			if not check(recent.size()==mini(sim.s.turn,8) and recent.back()==[sim.s.turn-1,b.gather+b.crop+b.refund+b.exports,spent],"eight-season chart matches settled accounts"): return
+			if not check(recent.size()==mini(sim.s.turn,8) and recent.back()==[sim.s.turn-1,b.gather+b.crop+b.refund+b.exports+b.freight_in+b.livestock,spent],"eight-season chart matches settled accounts"): return
 			for k in ["wood","stone"]:
 				if not check(b[k+"_open"]+b[k+"_in"]-b[k+"_out"]==sim.s[k],"seasonal "+k+" ledger reconciles"): return
 			if not check(sim.s.pop==sim.s.workers.size(),"population matches available worker records"): return
@@ -367,12 +367,74 @@ func route(index: int):
 	report("PASS route %d: %d seasons, population %d, food %d, seeds %d, downstream pollution %d, warnings %s, flooded/rescued/lost %s" % [index+1,sim.s.turn,sim.s.pop,sim.s.food,sim.s.seed,sim.s.water[2],sim.s.policy.keys(),results.back()])
 	if index==0: await capture("05-victory")
 
+func frontier_campaign():
+	await tap("new");await tap("region",4);await capture("beta-start")
+	await tap("difficulty",0)
+	if game.dialog_key=="restart": await tap("confirmed_new")
+	var s=sim.s
+	if not check(s.frontier.region==4 and s.frontier.fresh==22 and V.biome==4,"chosen coastal ecosystem loads its estuary"): return
+	for id in [S.WILD[0],S.WILD[1]]:
+		await visit(id)
+		for n in 2: await tap("assign",["t"+str(id),1])
+	await tap("inventory")
+	await tap("frontier_action",["well",null])
+	await capture("beta-coast-water")
+	await tap("panel","frontier");await tap("frontier_tab","探险")
+	await tap("frontier_action",["survey",[1,"粟"]])
+	if not check(s.pop==8 and S.F.people_total(s)==10 and sim.recruit_reason()!="","departing scouts reserve two beds"): return
+	await ticks(7)
+	await tap("pausemenu");await tap("save")
+	game.show_title();await tap("continue")
+	s=sim.s
+	if not check(s.frontier.missions.size()==1 and s.frontier.region==4,"coastal voyage survives saving and loading"): return
+	await ticks(25)
+	if not check(s.pop==10 and s.frontier.samples["粟"]==[2,2] and 1 in s.districts,"scouts return once with two millet parents"): return
+	await tap("panel","frontier");await tap("frontier_tab","种圃");await tap("atlas_crop","粟")
+	await tap("frontier_action",["trial",["粟",0]])
+	await tap("frontier_tab","牧场")
+	for cmd in ["pen","hens","goats","feed"]: await tap("frontier_action",[cmd,null])
+	await ticks(8)
+	if not check(s.frontier.eggs==1 and s.frontier.milk==2,"coastal herd produces food"): return
+	await capture("beta-herds")
+	var before=s.food
+	await tap("frontier_action",["provision",null])
+	check(s.food==before+3,"fresh dairy and eggs turn into rations on demand")
+	await tap("frontier_tab","运输")
+	await tap("frontier_action",["road",[0,1]])
+	await tap("load_size",false)
+	await tap("frontier_action",["ship",[0,1,"people",1]])
+	await tap("frontier_action",["ship",[0,1,"food",1]])
+	await capture("beta-roads")
+	await ticks(32)
+	if not check(s.frontier.lines.has("粟") and s.frontier.posts[1].people==1 and s.frontier.posts[1].food>=1,"delivered cargo, resident and domesticated crop are usable"): return
+	await tap("frontier_tab","种圃");await tap("atlas_crop","粟")
+	await tap("frontier_action",["trial",["粟",1]])
+	await capture("beta-crops")
+	await tap("closepanel")
+	await build("academy",38);await finish_site(38)
+	await learn("seed")
+	await tap("panel","crew");await tap("reserve",false);await tap("closepanel")
+	await build("farm",37);await finish_site(37)
+	await visit(37);await tap("frontier_action",["sow",[37,"粟"]])
+	for n in 220:
+		if failed or (s.cells[37].crop and S.F.Crops.field_species(s,37)=="粟"): break
+		if s.seed<2 and s.food>=2 and not s.cells[37].crop: await tap("site_reserve",0)
+		await ticks(1)
+	if not check(s.cells[37].crop and S.F.Crops.field_species(s,37)=="粟" and s.frontier.lines["粟"].vigor==1,"bred millet is growing in a player-operated field"): return
+	await visit(37);await zoom_view(MOUSE_BUTTON_WHEEL_UP,5);await capture("beta-millet-field")
+	report("PASS coastal UI: region art, freshwater, scouts and saved return, two parents, milk and eggs, road, freight, migration and actual millet crop")
+	game.shutdown(0)
+
 func run(main,out: String):
 	game=main;sim=main.sim;folder=out
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--difficulty-test="): difficulty=int(arg.trim_prefix("--difficulty-test="))
 	picture=DisplayServer.get_name()!="headless"
 	report("Native replay on "+DisplayServer.get_name()+" at "+str(DisplayServer.window_get_size()))
+	if "--frontier-test" in OS.get_cmdline_user_args():
+		await frames(10)
+		await frontier_campaign()
+		return
 	await frames(12);await capture("01-title")
 	low=39;upland=37
 	await first_seasons()
@@ -390,7 +452,7 @@ func run(main,out: String):
 	check(game.world.selected==outer and sim.capacity("t73")==0,"unclaimed map sector can be surveyed")
 	await tap("claim",V.sector(outer));await tap("assign",["t73",1])
 	await ticks(20)
-	check(sim.s.districts.has(V.sector(outer)) and sim.s.ledger.wood_in>0,"outer sector is staffed and productive")
+	check(sim.s.districts.has(V.sector(outer)) and sim.s.frontier.posts[V.sector(outer)].wood>0,"outer sector is staffed and productive")
 	await tap("panel","crew");await tap("transfer_to","t18");await tap("transfer_from","t73")
 	check(sim.assigned("t18")==1 and sim.assigned("t73")==0,"one worker transfers directly between sites")
 	await tap("closepanel")

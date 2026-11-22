@@ -2,6 +2,7 @@ extends Control
 
 const V=preload("res://valley.gd")
 const U=preload("res://paper.gd")
+const F=preload("res://frontier.gd")
 var game
 var last_focus=Vector2.INF
 
@@ -45,6 +46,17 @@ func _draw():
 			draw_circle(point,1.8,Color("#355d48") if c.kind=="wood" else Color("#d9d0b7"),true,-1,true)
 		elif c.project!="" or (c.kind!="" and c.kind!="wild"):
 			draw_rect(Rect2(point-Vector2(2,1.6),Vector2(4,3.2)),U.GOLD)
+	var s=game.sim.s
+	for pair in s.frontier.roads.values():
+		var points=PackedVector2Array()
+		for p in F.route_points(s,pair[0],pair[1]): points.append(chart_point(p))
+		draw_polyline(points,Color("#e6c78c"),1.25,true)
+	for z in s.frontier.posts:
+		var base=chart_point(V.center(F.anchor(s,z)))
+		draw_circle(base,3,Color("#d48c68"))
+	for j in s.frontier.missions:
+		var point=chart_point(F.journey_point(j,s.time))
+		draw_circle(point,2.7,Color("#f8edac") if j.kind=="survey" else Color("#91dbe6"))
 	draw_arc(chart_point(game.world.camera_point),6,0,TAU,24,Color.WHITE,1.6,true)
 
 func _gui_input(event):

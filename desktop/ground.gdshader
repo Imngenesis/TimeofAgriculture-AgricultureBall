@@ -1,6 +1,9 @@
 shader_type spatial;
 render_mode cull_disabled;
 varying vec3 site;
+uniform float estuary=0.0;
+uniform float dryland=0.0;
+uniform float highland=0.0;
 uniform vec3 season_tint=vec3(1.0);
 uniform sampler2D meadow : source_color, repeat_enable, filter_linear_mipmap_anisotropic;
 float hash(vec2 p) { return fract(sin(dot(p,vec2(32.7,91.3))) * 43758.53); }
@@ -15,11 +18,16 @@ void fragment(){
 	vec3 broad=texture(meadow,vec2(site.z,-site.x)*0.091+0.32).rgb;
 	float detail=dot(fine,vec3(0.3,0.59,0.11));
 	float river=0.36*site.z+1.18*sin(site.z*0.42+0.6)-0.15;
-	float breadth=1.14+0.14*sin(site.z*0.62+0.1);
+	float breadth=1.14+0.14*sin(site.z*0.62+0.1)+5.0*estuary*smoothstep(5.0,18.0,site.z);
 	float bank=abs(site.x-river)-breadth;
 	float cover=smoothstep(0.25,1.8,bank+large*0.55);
 	vec3 grass=mix(COLOR.rgb*(0.42+detail*0.87+large*0.14+shade*0.13)+broad*0.09,fine*vec3(0.91,1.05,0.95),0.24);
+	float sunburn=smoothstep(1.3,6.0,bank)*(0.28+0.44*shade);
+	grass=mix(grass,vec3(0.49,0.35,0.16)*(0.66+0.46*detail+0.14*large),dryland*sunburn);
+	float stone=smoothstep(2.48,3.7,site.y+0.45*large);
+	grass=mix(grass,vec3(0.33,0.325,0.29)*(0.68+0.3*grain+0.22*shade),highland*stone);
 	vec3 silt=COLOR.rgb*(0.46+grain*0.18+large*0.20);
+	silt=mix(silt,vec3(0.48,0.40,0.25)*(0.76+0.32*grain),estuary*smoothstep(4.0,15.0,site.z)*0.84);
 	float path_x=river-breadth-1.38-0.24*sin(site.z*0.95);
 	float path_edge=abs(site.x-path_x)+0.08*(grain-0.5)+0.045*sin(site.z*4.6);
 	float path=(1.0-smoothstep(0.07,0.24,path_edge))*(1.0-smoothstep(22.0,25.0,abs(site.z)));

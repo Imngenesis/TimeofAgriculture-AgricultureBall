@@ -1,5 +1,7 @@
 extends RefCounted
 
+static var biome=0
+const RELIEF=[2.0,1.25,1.61,3.6,1.4,2.9]
 const COLS = 15
 const ROWS = 12
 const CORE_CELLS = 72
@@ -37,14 +39,15 @@ static func river(z: float) -> float:
 	return 0.36 * z + 1.18 * sin(z * 0.42 + 0.6) - 0.15
 
 static func breadth(z: float) -> float:
-	return 1.14 + 0.14 * sin(z * 0.62 + 0.1)
+	return (smoothstep(5,18,z)*5.0 if biome==4 else 0.0) + 1.14 + 0.14 * sin(z * 0.62 + 0.1)
 
 static func ground(x: float, z: float) -> float:
 	var bank = absf(x - river(z)) - breadth(z)
 	var ramp = smoothstep(-0.15, 1.2, bank)
 	var upland = smoothstep(3.3, 11.5, bank)
 	var breaks = sin(x * 0.52 + z * 0.21) * 0.12 + cos(z * 0.68) * 0.09
-	return -0.37 + 0.73 * ramp + upland * (2.0 + 0.39 * sin(z * 0.32 + x * 0.22)) + breaks * ramp + 0.035 * sin(z * 1.78 + x)
+	var relief=RELIEF[biome]
+	return -0.37 + 0.73 * ramp + upland * (relief + 0.39 * sin(z * 0.32 + x * 0.22)) + breaks * ramp + 0.035 * sin(z * 1.78 + x)
 
 static func v3(p: Vector2, lift: float = 0.0) -> Vector3:
 	return Vector3(p.x, ground(p.x,p.y) + lift, p.y)

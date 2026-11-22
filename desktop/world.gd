@@ -6,6 +6,11 @@ const L=preload("res://landscape.gd")
 const Foliage=preload("res://foliage.gd")
 const Sim=preload("res://simulation.gd")
 var sim
+const FrontierArt=preload("res://frontier_art.gd")
+var trade_roads: Node3D
+var trade_layout=""
+var parties={}
+var terrain_region=-1
 var camera=Camera3D.new()
 var sun=DirectionalLight3D.new()
 var env=Environment.new()
@@ -49,6 +54,7 @@ var atmosphere=0.0
 
 func setup(model):
 	sim=model
+	terrain_region=sim.s.frontier.region
 	solid.vertex_color_use_as_albedo=true
 	solid.roughness=0.92
 	solid.cull_mode=BaseMaterial3D.CULL_DISABLED
@@ -58,9 +64,13 @@ func setup(model):
 	overlay_material.cull_mode=BaseMaterial3D.CULL_DISABLED
 	overlay_material.render_priority=3
 	earth.shader=preload("res://ground.gdshader")
+	earth.set_shader_parameter("estuary",1.0 if terrain_region==4 else 0.0)
+	earth.set_shader_parameter("dryland",1.0 if terrain_region==1 else (0.58 if terrain_region==5 else 0.0))
+	earth.set_shader_parameter("highland",1.0 if terrain_region==3 else (0.42 if terrain_region==5 else 0.0))
 	earth.set_shader_parameter("meadow",preload("res://art/floodplain-grass.png"))
 	add_child(L.terrain().bake(earth))
 	water_material.shader=preload("res://water.gdshader")
+	water_material.set_shader_parameter("estuary",1.0 if terrain_region==4 else 0.0)
 	add_child(L.river_mesh().bake(water_material))
 	flood_material.shader=preload("res://flood.gdshader")
 	buildings.shader=preload("res://farm_surface.gdshader")
@@ -203,7 +213,10 @@ func refresh_sites(force: bool):
 		if c.project!="" or c.kind not in ["","wild","wood","stone"]: developed[id]=1
 		var farm=c.kind=="farm"
 		var sick=farm and sim.has_blight(id)
-		var appearance=[c.kind,c.project,c.level,c.terrace,c.ditch,c.rotation,c.precise,c.crop,sick,sim.s.turn%4 if farm else 0,sim.s.era]
+		var f=sim.s.frontier
+		var species=f.plots.get(id,Sim.F.START[f.region])
+		var ranch=[f.hens,f.goats,f.wells,f.pens] if id==f.home else []
+		var appearance=[species,ranch,c.kind,c.project,c.level,c.terrace,c.ditch,c.rotation,c.precise,c.crop,sick,sim.s.turn%4 if farm else 0,sim.s.era]
 		if site_appearance.get(id,[])==appearance: continue
 		site_appearance[id]=appearance
 		if sites.has(id):
@@ -211,9 +224,11 @@ func refresh_sites(force: bool):
 		if c.kind=="" and c.project=="": continue
 		var geo=G.new()
 		geo.mark_finishes=true
-		L.site(geo,id,c,sim.s.turn%4,sick,sim.s.era)
+		L.site(geo,id,c,sim.s.turn%4,sick,sim.s.era,species)
+		if id==f.home: FrontierArt.stockyard(geo,sim.s)
+		if farm and c.crop and species!="稻": FrontierArt.crop_rows(geo,id,species,sim.s.turn%4==2)
 		var site=geo.bake(buildings)
-		if farm and c.crop:
+		if farm and c.crop and species=="稻":
 			site.add_child(Foliage.rice_field(id,c,sim.s.turn%4,rice_material))
 		add_child(site);sites[id]=site
 	if cleared!=developed:
@@ -230,10 +245,41 @@ func refresh_sites(force: bool):
 		for edge in sim.s.edges.values(): L.dike(g,edge)
 		embankments=_replace(embankments,g,solid)
 
+func refresh_routes(force: bool):
+	var f=sim.s.frontier
+	var layout=str([f.home,sim.s.districts,f.roads])
+	if force or trade_layout!=layout:
+		trade_layout=layout
+		var geometry=G.new()
+		FrontierArt.network(geometry,sim.s)
+		trade_roads=_replace(trade_roads,geometry,solid)
+	var active={}
+	for j in f.missions:
+		active[j.id]=true
+		if parties.has(j.id) and not force: continue
+		if parties.has(j.id): parties[j.id].hide();parties[j.id].queue_free()
+		var party=Node3D.new()
+		if j.kind=="survey":
+			for i in 2:
+				var scout=preload("res://farmer.gd").new()
+				scout.outfit(i+3,solid)
+				scout.position.x=(i-0.5)*0.31
+				party.add_child(scout)
+		else:
+			var cart=G.new()
+			FrontierArt.cart(cart)
+			party.add_child(cart.bake(solid))
+		parties[j.id]=party
+		add_child(party)
+	for id in parties.keys():
+		if not active.has(id):
+			parties[id].hide();parties[id].queue_free();parties.erase(id)
+
 func refresh(force: bool=false):
 	if people.size()!=sim.s.pop: _make_people()
 	if force or rev!=sim.s.rev:
 		refresh_sites(force)
+		refresh_routes(force)
 		rev=sim.s.rev
 	var state="%s/%s/%d/%d/%s" % [risk,sim.s.water,sim.s.rev,sim.s.turn,menu_mode]
 	if sim.s.flood_time>0 and (flood_key!=str(sim.s.flood_cells) or not is_instance_valid(flood_surface)):
@@ -316,7 +362,7 @@ func advance_frame(dt: float,alpha: float):
 	elif not menu_mode and sim.s.flood_time>0:
 		level=0.24*clampf((float(sim.s.flood_time)-alpha)/8.0,0,1)
 	water_material.set_shader_parameter("river_level",level)
-	earth.set_shader_parameter("season_tint",[Vector3(0.95,1.03,0.95),Vector3(0.94,1.02,0.92),Vector3(1.045,0.99,0.90),Vector3(0.97,0.93,0.90)][sim.s.turn%4])
+	earth.set_shader_parameter("season_tint",[Vector3(0.95,1.03,0.95),Vector3(0.94,1.02,0.92),Vector3(1.045,0.99,0.90),Vector3(0.97,0.93,0.90)][sim.s.turn%4]*[Vector3.ONE,Vector3(1.18,0.91,0.72),Vector3(0.95,1.03,0.92),Vector3(0.89,0.92,1.02),Vector3(0.93,1.02,1.07),Vector3(1.08,0.99,0.82)][sim.s.frontier.region])
 	var canopy=[Vector3(0.95,1.02,0.94),Vector3(0.89,0.96,0.89),Vector3(1.03,0.96,0.81),Vector3(0.87,0.83,0.70)][sim.s.turn%4]
 	for mat in tree_materials: mat.set_shader_parameter("seasonal_tint",canopy)
 	water_material.set_shader_parameter("reach_pollution",Vector3(sim.s.water[0],sim.s.water[1],sim.s.water[2])/50.0)
@@ -327,6 +373,17 @@ func advance_frame(dt: float,alpha: float):
 		var remaining=float(sim.s.flood_time)-alpha
 		flood_material.set_shader_parameter("stage",minf(clampf((37.0-remaining)/6.0,0.02,1.0),clampf(remaining/8,0.02,1.0)))
 		flood_material.set_shader_parameter("river_time",t)
+	for j in sim.s.frontier.missions:
+		if not parties.has(j.id): continue
+		var at=Sim.F.journey_point(j,t)
+		var next=Sim.F.journey_point(j,t+0.12)
+		var party=parties[j.id]
+		party.position=V.v3(at,0.06)
+		for bridge in [-3.5,4.8]:
+			if absf(at.y-bridge)<0.29 and absf(at.x-V.river(bridge))<V.breadth(bridge)+1.8: party.position.y=maxf(0.53,party.position.y)
+		if next.distance_squared_to(at)>0.000001: party.rotation.y=atan2(next.x-at.x,next.y-at.y)
+		if j.kind=="survey":
+			for n in party.get_child_count(): party.get_child(n).pose(t*6.5+n,true,false)
 	for i in people.size():
 		var w=sim.s.workers[i]
 		var p=sim.worker_point(i,alpha)

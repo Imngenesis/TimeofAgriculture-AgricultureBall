@@ -7,6 +7,13 @@ const S=preload("res://simulation.gd")
 const T=preload("res://settlement.gd")
 const E=preload("res://economy.gd")
 const Management=preload("res://management_ui.gd")
+const Atlas=preload("res://frontier_ui.gd")
+var frontier_tab="种圃"
+var atlas_crop="稻"
+var freight_from=0
+var freight_to=1
+var full_load=true
+var countdowns=[]
 var staff_alerts={}
 var economy_tab="budget"
 var goals_collapsed=false
@@ -51,7 +58,7 @@ func reset_root():
 	for child in get_children():
 		remove_child(child)
 		child.queue_free()
-	refs.clear(); toolbar_buttons.clear()
+	refs.clear(); toolbar_buttons.clear(); countdowns.clear()
 	side=null; drawer=null; modal=null; drawn=""; panel_key=""
 	stage=Control.new()
 	stage.mouse_filter=Control.MOUSE_FILTER_IGNORE
@@ -80,9 +87,9 @@ func menu(has_save: bool):
 	stage.add_child(stack)
 	U.rect(stack,0,0.5,0,0.5,Rect2i(79,-226,478,221))
 	var loc=U.box(false,10);stack.add_child(loc)
-	loc.add_child(U.icon("seal",35));loc.add_child(U.label("长江河谷  /  四时代生存战役",16,U.GOLD))
+	loc.add_child(U.icon("seal",35));loc.add_child(U.label("六方水土  /  四时代农业战役",16,U.GOLD))
 	stack.add_child(title_label("稻生江畔",72,U.TEXT))
-	stack.add_child(U.label("带十个人在江边扎根，留住下一季的种子。",18,U.DIM))
+	stack.add_child(U.label("带十个人落脚，从第一把种子经营出一片家园。",18,U.DIM))
 	stack.add_child(U.rule())
 	var controls=U.box(true,9); stack.add_child(controls)
 	controls.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
@@ -91,14 +98,18 @@ func menu(has_save: bool):
 	var start=btn("开始新战役","new",null,not has_save);start.custom_minimum_size=Vector2(209,44);controls.add_child(start)
 	var settings=btn("游戏设置","settings");settings.custom_minimum_size=Vector2(209,38);controls.add_child(settings)
 	var leave=btn("退出游戏","quit");leave.custom_minimum_size=Vector2(209,38);controls.add_child(leave)
-	var signature=U.label("稻生江畔  ·  桌面试玩版  0.3",13,U.DIM)
+	var signature=U.label("稻生江畔  ·  V1.00 Beta 1",13,U.DIM)
 	stage.add_child(signature);U.rect(signature,0,1,0,1,Rect2i(80,-53,412,-30))
 	var river=U.box(false,7)
 	stage.add_child(river);U.rect(river,1,1,1,1,Rect2i(-190,-56,-30,-28))
-	river.add_child(U.icon("compass",27,U.TEXT));river.add_child(U.label("长江中下游",14,U.TEXT))
+	river.add_child(U.icon("compass",27,U.TEXT));river.add_child(U.label("六地农耕图志",14,U.TEXT))
 
 func game_view():
 	mode="game"
+	atlas_crop=S.F.START[sim.s.frontier.region]
+	frontier_tab="种圃"
+	freight_from=0
+	freight_to=1
 	reset_root()
 	var pins=preload("res://map_marks.gd").new()
 	pins.game=game;pins.face=theme.default_font;pins.mouse_filter=Control.MOUSE_FILTER_IGNORE
@@ -153,10 +164,11 @@ func game_view():
 	refs.tip=U.label("",13,U.DIM,true);m.add_child(refs.tip)
 	refs.hint=btn("查看下一步","hint");m.add_child(refs.hint)
 	refs.develop=btn("查看晋阶条件","panel","era");m.add_child(refs.develop)
+	refs.water_stock=btn("","inventory");m.add_child(refs.water_stock)
 	refs.vacancies=btn("缺工岗位","staff_alert");m.add_child(refs.vacancies)
-	var tool_panel=U.panel(stage,0.5,1,0.5,1,Rect2i(-333,-69,333,-13))
+	var tool_panel=U.panel(stage,0.5,1,0.5,1,Rect2i(-381,-69,381,-13))
 	var tool_row=U.box(false,5);U.inset(tool_panel,6).add_child(tool_row)
-	for item in [["build","build","建设"],["study","study","农学"],["crew","crew","调度"],["economy","balance","收支"],["risk","risk","灾情"],["log","log","农事簿"]]:
+	for item in [["build","build","建设"],["study","study","农学"],["crew","crew","调度"],["economy","balance","收支"],["frontier","seed","农庄"],["risk","risk","灾情"],["log","log","农事簿"]]:
 		var b=btn("       "+item[2],"panel",item[0])
 		b.custom_minimum_size=Vector2(100,36);b.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		var glyph=U.icon(item[1],22);b.add_child(glyph)
@@ -204,7 +216,13 @@ func update_status():
 	refs.vacancies.text="缺工 %d 处　·　前往调度" % staff_alerts.size()
 	refs.vacancies.modulate=U.WARN
 	refs.map.queue_redraw()
-	refs.crew.text="%d / %d" % [s.pop,sim.free_workers()]
+	refs.water_stock.visible=s.frontier.region==4
+	if refs.water_stock.visible:
+		var water=S.F.Farm.spring_water(s)
+		refs.water_stock.text="淡水 %d　·　%s" % [s.frontier.fresh,"预计短缺 %d" % water.short if water.short else "查看水务"]
+		refs.water_stock.modulate=U.WARN if water.short else U.TEXT
+	refs.crew.text="%d / %d" % [S.F.people_total(s),sim.free_workers()]
+	refs.crew.tooltip_text="总人口（含外派）。营地 %d，营外 %d。" % [s.pop,S.F.people_total(s)-s.pop]
 	refs.science.text="%d / %d" % [s.science,s.cells[ac].notes if ac>=0 else 0]
 	refs.food.add_theme_color_override("font_color",U.WARN if s.food<s.pop else U.TEXT)
 	refs.clock.text="季末还有 %d 秒" % (S.SEASON_TIME-s.clock)
@@ -217,7 +235,7 @@ func update_status():
 	elif s.era==1 and s.flood_at<0: refs.forecast.text="察看洪峰前的风险低地"
 	elif s.era==2 and not s.rain: refs.forecast.text="梅雨将至 · 察看坡田"
 	elif s.era==3: refs.forecast.text="下游水质 · 污染 %d" % s.water[2]
-	else: refs.forecast.text=["春播 · 检查种仓","长夏 · 抓紧补种","秋收 · 保住稻穗","冬藏 · 野粮减少"][s.turn%4]
+	else: refs.forecast.text=["春播 · 检查种仓","长夏 · 抓紧补种","秋收 · 照料田块","冬藏 · 野粮减少"][s.turn%4]
 	refs.pause.text="▶" if game.paused else "Ⅱ"
 	for key in ["one","two","four"]:
 		refs[key].modulate=U.GOLD if not game.paused and game.speed=={"one":1,"two":2,"four":4}[key] else Color.WHITE
@@ -265,7 +283,7 @@ func rebuild_details(force: bool=false):
 	var tag="%s:%d:%s:%s:%s:%s:%s:%s:%s:%s:%s" % [panel_key,id,game.edge_job,s.rev,s.turn,s.tech,s.study,s.science,s.food>=4,game.world.risk,sim.free_workers()]
 	var ac=sim.academy_id()
 	if ac>=0: tag+=":%d" % s.cells[ac].notes
-	if panel_key in ["era","crew","build","economy","transfer"] or id>=0: tag+=":%d:%d:%d:%d" % [s.food,s.seed,s.wood,s.stone]
+	if panel_key in ["era","crew","build","economy","transfer","frontier"] or id>=0: tag+=":%d:%d:%d:%d" % [s.food,s.seed,s.wood,s.stone]
 	if panel_key in ["crew","transfer"] or id>=0:
 		var walking=0
 		for worker in s.workers:
@@ -274,12 +292,13 @@ func rebuild_details(force: bool=false):
 	if force or tag!=drawn:
 		var old_scroll=0
 		var site_scroll=0
-		if is_instance_valid(drawer) and drawer.get_meta("section","")==panel_key:
+		if is_instance_valid(drawer) and drawer.get_meta("section","")==panel_key and drawer.get_meta("tab","")==detail_tab():
 			var last=drawer.find_child("ContentScroll",true,false)
 			if last: old_scroll=last.scroll_vertical
 		if is_instance_valid(side) and side.get_meta("tile",-1)==id and side.get_meta("job","")==game.edge_job:
 			site_scroll=side.find_child("SiteScroll",true,false).scroll_vertical
 		drawn=tag
+		countdowns.clear()
 		refs.erase("cancel_work");refs.erase("inspection")
 		clear_detail(side);side=null
 		clear_detail(drawer);drawer=null
@@ -290,6 +309,8 @@ func rebuild_details(force: bool=false):
 			make_inspector(id)
 			if site_scroll>0: side.find_child("SiteScroll",true,false).set_deferred("scroll_vertical",site_scroll)
 		if is_instance_valid(modal): stage.move_child(modal,-1)
+	for clock_label in countdowns:
+		clock_label.text=clock_label.get_meta("message") % maxi(0,int(clock_label.get_meta("due"))-s.time)
 	if refs.has("inspection") and is_instance_valid(refs.inspection) and id>=0:
 		refs.inspection.text=inspection(id)
 		if refs.has("cancel_work") and is_instance_valid(refs.cancel_work):
@@ -326,13 +347,13 @@ func inspection(id: int) -> String:
 		var activity="研习「%s」还需 %d 人秒" % [S.TECH[s.study][0],s.study_time] if s.study!="" else "下一点科技　%d / %d 人秒" % [c.lesson,T.LESSON]
 		return condition+"到岗 %d 人　·　待领 %d 点\n%s" % [sim.assigned(job,true),c.notes,activity]
 	if c.kind=="farm":
-		var status="正在生长" if c.crop else ("等待春夏播种" if s.seed>=2 else "等待两份种粮")
+		var status="正在生长" if c.crop else ("等待春夏播种" if E.warehouse(s,V.sector(id)).seed>=2 else "等待两份种粮")
 		if c.flood: status="受淹 · 等待退水"
 		var coverage=[]
 		for kind in ["canal","nursery","station"]:
 			if T.covered(s,id,kind): coverage.append(S.BUILD[kind][0])
 		return condition+"%s　·　地力 %d / 污染 %d\n到岗 %d 人　上茬 %d 份\n按现况估产 %d 份\n食害 %d　草害 %d　病害 %d\n覆盖设施　%s" % [status,c.soil,c.pollution,sim.assigned(job,true),c.last,sim.expected_yield(id),c.birds,c.weeds,c.disease,"、".join(coverage) if coverage else "暂无"]
-	if id==S.HOME and sim.capacity(job)>0: return "转运队 %d 人已到岗\n粮种正在向高处转移。" % sim.assigned(job,true)
+	if id==s.frontier.home and sim.capacity(job)>0: return "转运队 %d 人已到岗\n粮种正在向高处转移。" % sim.assigned(job,true)
 	if V.tier(id)<0: return "本河段污染  %d\n水向下游流动。" % s.water[V.reach(id)]
 	if c.kind in S.FACILITIES:
 		var status=""
@@ -343,6 +364,7 @@ func inspection(id: int) -> String:
 	return "临河易涝，田堤可截住来水。" if V.tier(id)==0 else "地势较高，适合建粮仓或开田。"
 
 func make_inspector(id: int):
+	var s=sim.s
 	var c=sim.s.cells[id]
 	var height=448 if c.kind=="farm" else (310 if c.kind in S.FACILITIES else 220)
 	side=U.panel(stage,1,0,1,0,Rect2i(-302,82,-18,82+height))
@@ -360,7 +382,12 @@ func make_inspector(id: int):
 		var zone=V.sector(id)
 		var open=btn("开通区域 · %d 粮 / 2 木" % E.LAND_PRICE[zone],"claim",zone,true)
 		open.disabled=sim.s.food<E.LAND_PRICE[zone] or sim.s.wood<2;v.add_child(open)
+		v.add_child(btn("派探险队并带回种源","survey_map",zone))
 		return
+	if V.sector(id)>0:
+		var bin=E.warehouse(s,V.sector(id))
+		v.add_child(U.label("当地仓　%d 粮　%d 种　%d 木　%d 石" % [bin.food,bin.seed,bin.wood,bin.stone],13,U.GOLD,true))
+		v.add_child(btn("打开运输","shipping_map",V.sector(id)))
 	if sim.assigned(job)<sim.minimum_staff(job):
 		v.add_child(U.label("缺工 · 至少需要 1 人到岗",15,U.WARN))
 	if sim.capacity(job)>0 or sim.assigned(job)>0:
@@ -379,20 +406,26 @@ func make_inspector(id: int):
 		return
 	if c.project!="":
 		refs.cancel_work=btn("撤工","cancel_project",job);v.add_child(refs.cancel_work)
-	if (id==S.HOME or c.kind=="house") and c.project=="": Management.recruit_button(self,v)
+	if c.kind=="farm":
+		var crop=S.F.Crops.field_species(s,id)
+		v.add_child(U.label("本田 · "+S.F.Crops.title(crop)+"　下茬 · "+S.F.Crops.title(c.get("next_species",crop)),15,U.GOLD,true))
+		for available in s.frontier.lines:
+			if available!=c.get("next_species",crop): v.add_child(btn("下茬种"+S.F.Crops.title(available),"frontier_action",["sow",[id,available]]))
+		if s.frontier.manure>0: Atlas.action(self,v,"施 1 厩肥 · 地力 +10","manure",id)
+	if (id==s.frontier.home or c.kind=="house") and c.project=="": Management.recruit_button(self,v)
 	if c.kind=="academy" and c.project=="":
 		var claim=btn("领取 %d 点科技" % c.notes,"collect",id,c.notes>0)
 		claim.disabled=c.notes<=0 or c.flood;v.add_child(claim)
 		v.add_child(btn("查看科技树","panel","study"))
 	if c.kind=="farm" and c.project=="":
-		for item in [["rotate","稻豆轮作","rotation"],["precise","精准配肥","precise"],["scout","巡田防病","patrol"]]:
+		for item in [["rotate","谷豆轮作","rotation"],["precise","精准配肥","precise"],["scout","巡田防病","patrol"]]:
 			if sim.s.tech.has(item[0]) and (item[2]=="patrol" or not c.get(item[2],false)):
 				v.add_child(btn(item[1]+"  ·  2 粮","field",[id,item[2]]))
 		if sim.s.era>=2: v.add_child(btn("堆肥养地  ·  2 粮","field",[id,"compost"]))
 		if sim.s.tech.has("fertilizer"):
 			v.add_child(btn("停用高投入 · 免费" if c.fertilized else "启用化肥 · 2 粮 · 尾水风险","field",[id,"fertilized"]))
-	if id==S.HOME or c.kind=="store" or c.kind=="farm":
-		v.add_child(btn("封存两份种粮","reserve",false))
+	if id==s.frontier.home or c.kind=="store" or c.kind=="farm":
+		v.add_child(btn("在本地封存两份种粮","site_reserve",V.sector(id)))
 	if c.kind=="" and c.project=="" and V.tier(id)>=0 and game.edge_job=="":
 		v.add_child(btn("在此开田","place_here",["farm",id]))
 		if sim.academy_id()<0: v.add_child(btn("建农专 · 3 粮 / 3 木 / 1 石","place_here",["academy",id]))
@@ -409,16 +442,24 @@ func make_inspector(id: int):
 			var why=sim.build_reason(key,id)
 			b.disabled=why!="";b.tooltip_text=why;v.add_child(b)
 
+func detail_tab() -> String:
+	if panel_key=="frontier": return frontier_tab
+	if panel_key=="economy": return economy_tab
+	return ""
+
 func make_drawer():
-	var w=632 if panel_key in ["crew","economy","transfer"] else 594
+	var w=728 if panel_key=="frontier" else (632 if panel_key in ["crew","economy","transfer"] else 594)
 	drawer=U.panel(stage,0.5,0.5,0.5,0.5,Rect2i(-w/2,-245,w/2,231),U.PANEL)
 	drawer.set_meta("section",panel_key)
+	drawer.set_meta("tab",detail_tab())
 	var frame=U.box(true,8);U.inset(drawer,15).add_child(frame)
-	var titles={"build":"农业建设","study":"农业科技树","crew":"人力总览","economy":"资源与收支","transfer":"跨岗调配","risk":"河谷灾情","log":"农事簿","era":"时代建设与晋阶"}
-	row_header(frame,titles[panel_key],"closepanel");frame.add_child(U.rule())
+	var titles={"frontier":"农庄与拓殖地","build":"农业建设","study":"农业科技树","crew":"人力总览","economy":"资源与收支","transfer":"跨岗调配","risk":"河谷灾情","log":"农事簿","era":"时代建设与晋阶"}
+	row_header(frame,titles[panel_key]+("　·　"+S.F.REGIONS[sim.s.frontier.region] if panel_key=="frontier" else ""),"closepanel");frame.add_child(U.rule())
+	if panel_key=="frontier": Atlas.tabs(self,frame)
 	var scroll=ScrollContainer.new();scroll.name="ContentScroll";scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED;scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL;frame.add_child(scroll)
 	var content=U.box(true,7);content.size_flags_horizontal=Control.SIZE_EXPAND_FILL;scroll.add_child(content)
 	match panel_key:
+		"frontier": Atlas.draw(self,content)
 		"build":
 			content.add_child(U.label("点工程选址，点已建成的设施可扩建、检修。完好度低于 50 会停用服务。",14,U.DIM,true))
 			for key in S.BUILD:
@@ -490,22 +531,19 @@ func dialog(kind: String):
 	modal.color=Color(0.035,0.065,0.047,0.55)
 	stage.add_child(modal);modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	modal.mouse_filter=Control.MOUSE_FILTER_STOP
-	var card=U.panel(modal,0.5,0.5,0.5,0.5,Rect2i(-257,-179,257,176),Color(0.095,0.145,0.115,0.99))
+	var bounds=Rect2i(-349,-249,349,249) if kind=="difficulty" else (Rect2i(-300,-212,300,212) if kind=="crisis" else Rect2i(-257,-179,257,176))
+	var card=U.panel(modal,0.5,0.5,0.5,0.5,bounds,Color(0.095,0.145,0.115,0.99))
 	var body=U.box(true,9);U.inset(card,22).add_child(body)
 	var s=sim.s
 	match kind:
 		"difficulty":
-			body.add_child(title_label("选择河谷年景",29));body.add_child(U.rule())
-			for i in E.DIFFICULTIES.size():
-				var d=E.DIFFICULTIES[i]
-				body.add_child(btn("%s　·　%d 粮 / %d 木 / %d 石" % [d.name,d.food,d.wood,d.stone],"difficulty",i,i==1))
-				body.add_child(U.label("田间产量 %d%%　　 公共支出 %d%%" % [d.yield_pct,d.cost_pct],14,U.DIM))
-			body.add_child(btn("返回","back"))
+			Atlas.habitats(self,body)
 		"crisis":
 			var event=S.CRISIS[s.pending]
 			body.add_child(U.label("农情急报    /    "+sim.date()+"    /    时间已暂停",13,U.WARN))
 			body.add_child(title_label(event[0],31));body.add_child(U.rule())
-			body.add_child(U.label(event[1],16,U.TEXT,true))
+			if s.pending=="blight" and not s.frontier.disease.is_empty(): Atlas.disease(body,s.frontier.disease)
+			else: body.add_child(U.label(event[1],16,U.TEXT,true))
 			if s.cause.has(s.pending):
 				var source=s.cause[s.pending]
 				body.add_child(U.label(V.address(source.tile)+"　·　"+source.why,14,U.GOLD,true))
@@ -526,7 +564,7 @@ func dialog(kind: String):
 			body.add_child(U.label(S.ROMAN[s.era]+"  "+S.ERAS[s.era]+"    /    "+sim.date(),14,U.GOLD))
 			body.add_child(title_label("谷满江清" if victory else "江岸散炊",38))
 			body.add_child(U.rule())
-			body.add_child(U.label(("疫后稻谷入仓。河谷留住了种粮与清水。" if s.after_blight else "分散育秧的田块迎来了现代秋收，河谷留住了种粮与清水。") if victory else s.end_reason+" 最近一次供粮 %d / %d 份。" % [s.last_served,s.last_need],17,U.TEXT,true))
+			body.add_child(U.label(("疫后秋粮入仓。河谷留住了种粮与清水。" if s.after_blight else "分散育秧的田块迎来了现代秋收，河谷留住了种粮与清水。") if victory else s.end_reason+" 最近一次供粮 %d / %d 份。" % [s.last_served,s.last_need],17,U.TEXT,true))
 			body.add_child(U.label("口粮 %d 份   ·   种粮 %d 份   ·   下游污染 %d" % [s.food,s.seed,s.water[2]],15,U.GOLD))
 			if not victory: body.add_child(btn("从本时代起点重试","retry",null,true))
 			body.add_child(btn("返回主菜单","title",null,victory))

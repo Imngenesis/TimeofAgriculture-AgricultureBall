@@ -2,8 +2,8 @@ config_version=5
 
 [application]
 config/name="稻生江畔"
-config/description="长江河谷的四时代农业生存战役"
-config/version="0.3.0"
+config/description="在六种生态中探索种源、经营拓殖地，从采集走向现代农业。"
+config/version="1.0.0-beta.1"
 config/icon="res://art/riverbend.png"
 boot_splash/image="res://art/riverbend.png"
 boot_splash/bg_color=Color(0.08,0.12,0.10,1)
