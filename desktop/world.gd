@@ -9,6 +9,9 @@ var sim
 const FrontierArt=preload("res://frontier_art.gd")
 var trade_roads: Node3D
 var trade_layout=""
+var removing=false
+var road_start=-1
+var road_end=-1
 var parties={}
 var terrain_region=-1
 var camera=Camera3D.new()
@@ -247,7 +250,7 @@ func refresh_sites(force: bool):
 
 func refresh_routes(force: bool):
 	var f=sim.s.frontier
-	var layout=str([f.home,sim.s.districts,f.roads])
+	var layout=str([f.home,sim.s.districts,sim.s.streets])
 	if force or trade_layout!=layout:
 		trade_layout=layout
 		var geometry=G.new()
@@ -301,6 +304,7 @@ func refresh(force: bool=false):
 					_tile(g,i,Color(0.82,0.49,0.22,clampf(amount,0.12,0.68)),0.45 if V.tier(i)<0 else 0.14)
 		cover=_replace(cover,g,overlay_material)
 	var mark_state="%d/%d/%s/%d/%d/%s/%d/%s" % [hover,selected,build_tool,edge_shift,sim.s.rev,menu_mode,sim.s.food,sim.s.tech]
+	mark_state+="/%d/%d/%s" % [road_start,road_end,removing]
 	if force or stamp!=mark_state:
 		stamp=mark_state
 		update_mark()
@@ -316,7 +320,17 @@ func update_mark():
 	var preview=G.new()
 	if not menu_mode:
 		if selected>=0: _ring(g,selected,Color("#fff0ab"),0.078)
-		if hover>=0:
+		if build_tool=="street":
+			var dest=road_end if road_end>=0 else hover
+			if road_start>=0: _ring(g,road_start,Color("#f4d487"),0.10)
+			if dest>=0:
+				var plan=Sim.Roads.removal(sim.s,road_start,dest) if removing else Sim.Roads.quote(sim.s,road_start,dest)
+				var tone=Color("#99ebc0") if plan.reason=="" and not removing else Color("#f0a37c")
+				_ring(g,dest,tone,0.09)
+				for tile in plan.tiles: _tile(g,tile,Color(tone.r,tone.g,tone.b,0.29),0.11)
+				var line=Sim.Roads.points(plan.tiles)
+				for j in range(1,line.size()): _line(g,line[j-1],line[j],0.12,tone,0.17)
+		elif hover>=0:
 			edge_dir=posmod(V.intake(hover)+edge_shift,6)
 			var valid=build_tool=="" or sim.build_reason(build_tool,hover,edge_dir)==""
 			var col=Color("#f0d68a") if build_tool=="" else (Color("#b8e0ad") if valid else Color("#ed9271"))

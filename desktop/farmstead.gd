@@ -24,11 +24,13 @@ static func reason(s: Dictionary,cmd: String,arg) -> String:
 			if f.hens+f.goats+f.broods.size()>=CAPACITY*f.pens: return "先搭畜栏或扩栏，每栏容纳三群"
 			if s.food<3 or s.wood<2: return "需 3 粮和 2 木"
 		"brood":
+			if not s.cells[f.home].connected: return "营地需先通路至农专"
 			if arg not in ["hens","goats"] or f[arg]<2: return "繁育需同种两群成畜"
 			if f.broods.has(arg): return "同一畜群已有幼畜在养"
 			if f.hens+f.goats+f.broods.size()>=CAPACITY*f.pens: return "需要一个空栏位"
 			if f.feed<3: return "哺育幼畜需 3 份饲料"
 		"feed":
+			if f.feed+E.inbound(s,0,"feed")+4>8+4*f.pens: return "饲料架已满，扩建畜栏能增加容量"
 			if s.food<2: return "制备饲料需 2 粮"
 		"provision":
 			if f.eggs+f.milk==0: return "等待畜群产蛋或产奶"
@@ -72,6 +74,9 @@ static func act(s: Dictionary,cmd: String,arg):
 static func tick(m):
 	var f=m.s.frontier
 	for species in f.broods.keys():
+		if not m.s.cells[f.home].connected:
+			f.broods[species]+=1
+			continue
 		if m.s.time>=f.broods[species]:
 			f[species]+=1
 			f.broods.erase(species)
@@ -81,13 +86,14 @@ static func tick(m):
 static func settle(m):
 	var s=m.s
 	var f=s.frontier
-	var eggs=mini(f.feed,f.hens)
+	var serviced=s.cells[f.home].connected
+	var eggs=mini(f.feed,f.hens) if serviced else 0
 	f.feed-=eggs
-	var milk=mini(f.goats,floori(f.feed/2.0))*2
+	var milk=mini(f.goats,floori(f.feed/2.0))*2 if serviced else 0
 	f.feed-=milk
 	s.ledger.dairy_loss=f.milk
 	f.milk=milk
-	f.eggs+=eggs
+	f.eggs=mini(f.eggs+eggs,4+3*f.pens)
 	f.manure+=floori((eggs+milk+f.bedding)/2.0)
 	f.bedding=(eggs+milk+f.bedding)%2
 	s.ledger.eggs=eggs

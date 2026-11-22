@@ -40,7 +40,7 @@ func capture(label_text: String):
 	check(image!=null and image.save_png(folder.path_join(label_text+".png"))==OK,"screenshot "+label_text)
 	if label_text=="02-river-valley" and image:
 		image.save_jpg(folder.path_join("river-valley.jpg"),0.88)
-	if (label_text in ["12-harvest-detail","11-modern-valley"] or label_text.begins_with("beta-")) and image:
+	if (label_text in ["12-harvest-detail","11-modern-valley"] or label_text.begins_with("beta-") or label_text.begins_with("formal-")) and image:
 		image.save_jpg(folder.path_join(label_text+".jpg"),0.93)
 
 func zoom_view(button: MouseButton,count: int):
@@ -98,7 +98,7 @@ func ticks(count: int):
 		game.sim_step()
 		if sim.s.turn!=prior_turn:
 			var b=sim.s.last_ledger
-			var spent=b.build+b.maintenance+b.advance+b.eat+b.loss+b.sow+b.spoil+b.operations+b.imports+b.recruit+b.land+b.husbandry+b.explore+b.freight_out
+			var spent=b.build+b.maintenance+b.advance+b.eat+b.loss+b.sow+b.spoil+b.operations+b.imports+b.recruit+b.land+b.husbandry+b.explore+b.freight_out+b.research
 			if not check(b.opening+b.gather+b.crop+b.refund+b.exports+b.freight_in+b.livestock-spent==b.ending,"seasonal food ledger reconciles"): return
 			var recent=sim.s.history
 			if not check(recent.size()==mini(sim.s.turn,8) and recent.back()==[sim.s.turn-1,b.gather+b.crop+b.refund+b.exports+b.freight_in+b.livestock,spent],"eight-season chart matches settled accounts"): return
@@ -124,19 +124,62 @@ func choose_cell(id: int):
 	click(position)
 	await frames(2)
 
+func raise_food(amount: int,wood_keep: int=0,stone_keep: int=0):
+	if sim.s.food>=amount or failed: return
+	if game.hud.panel_key!="": await tap("closepanel")
+	await tap("panel","economy");await tap("economy_tab","market")
+	for n in 120:
+		if sim.s.food>=amount or failed or sim.s.outcome!="" or sim.s.pending!="": break
+		if sim.s.stone>=S.E.LOT.stone+stone_keep: await tap("trade",["stone",false])
+		elif sim.s.wood>=S.E.LOT.wood+wood_keep: await tap("trade",["wood",false])
+		elif not game.paused: await ticks(1)
+		else: break
+	await tap("closepanel")
+
+func supplies(wood: int,stone: int):
+	if failed or (sim.s.wood>=wood and sim.s.stone>=stone): return
+	if game.hud.panel_key!="": await tap("closepanel")
+	await tap("panel","economy");await tap("economy_tab","market")
+	for kind in ["wood","stone"]:
+		var need=wood if kind=="wood" else stone
+		for attempt in 20:
+			if failed or sim.s[kind]>=need: break
+			if sim.s.food<5: await ticks(8)
+			else: await tap("trade",[kind,true])
+		if not check(sim.s[kind]>=need,"supplies available for "+kind+" "+str([sim.s.food,sim.s[kind],need])): return
+	await tap("closepanel")
+
+func pave_to(id: int):
+	if failed or sim.s.cells[id].connected: return
+	var start=S.Roads.root(sim.s)
+	if not check(start>=0,"a road begins from a completed academy"): return
+	for tile in S.Roads.path(sim.s,start,id):
+		if sim.s.cells[tile].connected: start=tile
+	var plan=S.Roads.quote(sim.s,start,id)
+	await supplies(plan.wood,plan.stone)
+	if game.hud.panel_key!="": await tap("closepanel")
+	await key(KEY_G)
+	await choose_cell(start);await choose_cell(id)
+	if not check(sim.s.cells[id].connected,"road is connected to school at "+str(id)+" "+game.hud.toast): return
+	await tap("street_end")
+
 func build(kind: String,id: int):
+	if kind!="academy" and kind!="levee" and S.Roads.root(sim.s)>=0: await pave_to(id)
 	var inputs=S.E.MATERIALS[kind]
-	if sim.s.wood<inputs[0] or sim.s.stone<inputs[1]:
-		await tap("panel","economy")
-		await tap("economy_tab","market")
-		for k in ["wood","stone"]:
-			var need=inputs[0 if k=="wood" else 1]
-			while sim.s[k]<need and not failed: await tap("trade",[k,true])
-		await tap("closepanel")
+	await supplies(inputs[0],inputs[1])
+	await raise_food(S.BUILD[kind][2],inputs[0],inputs[1])
 	await tap("panel","build")
 	await tap("tool",kind)
 	await choose_cell(id)
 	check(game.world.build_tool=="" and game.world.selected==id,"placed "+kind+" at "+str(id)+" "+game.hud.toast)
+
+func maintain(kind: String,id: int):
+	var inputs=S.E.MATERIALS[kind]
+	await supplies(inputs[0],inputs[1])
+	await raise_food(S.BUILD[kind][2],inputs[0],inputs[1])
+	await visit(id)
+	if not check(sim.build_reason(kind,id)=="","can "+kind+" at "+str(id)+" "+sim.build_reason(kind,id)): return
+	await tap("site_work",[kind,id]);await finish_site(id)
 
 func visit(id: int):
 	await tap("panel","crew")
@@ -149,7 +192,8 @@ func finish_site(id: int):
 		if sim.free_workers()>0: await tap("fill")
 		if sim.assigned(job)==0:
 			await tap("transfer_to",job)
-			await tap("transfer_from","t"+str(S.WILD[1]))
+			var donor="t35" if sim.assigned("t35")>0 and difficulty==2 else "t"+str(S.WILD[1])
+			await tap("transfer_from",donor)
 		await tap("closepanel")
 	for i in 85:
 		if failed or sim.s.cells[id].project=="": break
@@ -170,27 +214,97 @@ func bank_notes(required: int=0):
 		await tap("collect",ac)
 		check(sim.s.science==before+local and sim.s.cells[ac].notes==0,"collection transfers points exactly once")
 
+func seed_target() -> int:
+	var needed=0
+	for plot in sim.farms():
+		var next=S.F.Crops.for_sowing(sim.s,plot)
+		needed+=S.F.Crops.seed_cost(sim.s,next[0],next[1])
+	return needed
+
+func stock_seed(amount: int):
+	if failed or sim.s.seed>=amount or sim.s.pending!="" or sim.s.food<2: return
+	if game.hud.panel_key!="": await tap("closepanel")
+	await tap("panel","crew")
+	for n in 12:
+		if sim.s.seed>=amount or sim.s.food<2 or failed: break
+		await tap("reserve",false)
+	await tap("closepanel")
+
 func learn(id: String):
 	if failed: return
-	await bank_notes(S.TECH[id][2])
-	await tap("panel","study");await tap("research",id);await tap("closepanel")
-	for i in 12:
+	var spec=sim.techs[id]
+	var price=S.Study.bill(sim.s,id,spec)
+	await bank_notes(spec[2])
+	await supplies(price[2],price[3])
+	var desired=price[1]+seed_target()
+	var missing=maxi(0,desired-sim.s.seed)
+	await raise_food(price[0]+2*ceili(missing/2.0),price[2],price[3])
+	await stock_seed(desired)
+	await tap("panel","study")
+	await tap("tech_branch",game.hud.Research.branch(sim,id))
+	await tap("tech_view",id)
+	if not check(sim.research_reason(id)=="","can begin research "+id+" "+sim.research_reason(id)): return
+	await tap("research",id);await tap("closepanel")
+	for i in 75:
 		if sim.s.tech.has(id) or failed: break
 		await ticks(1)
-	check(sim.s.tech.has(id),"staff completed research "+id)
+	check(sim.s.tech.has(id),"staff completed research "+id+" "+str([sim.s.pending,sim.s.outcome,sim.s.study_time]))
+
+func install_cistern():
+	await supplies(3,2)
+	await tap("inventory")
+	await tap("frontier_action",["well",null])
+	await tap("closepanel")
+
+func food_for_season():
+	var target=sim.s.pop+S.E.budget(sim.s).total
+	if failed or sim.s.pending!="" or sim.s.outcome!="" or sim.s.food>=target: return
+	var seed_floor=seed_target() if sim.s.turn%4==3 else 2
+	if sim.s.seed>seed_floor+1:
+		await tap("panel","crew")
+		while sim.s.food<target and sim.s.seed>seed_floor+1 and not failed: await tap("reserve",true)
+		await tap("closepanel")
+	if sim.s.food>=target: return
+	await tap("panel","economy");await tap("economy_tab","market")
+	for n in 12:
+		if failed or sim.s.food>=target: break
+		if sim.s.stone>=5: await tap("trade",["stone",false])
+		elif sim.s.wood>=6: await tap("trade",["wood",false])
+		else: break
+	await tap("closepanel")
+
+func extra_plot() -> int:
+	var best=-1
+	var score=INF
+	for id in 72:
+		if V.tier(id)<0 or sim.s.cells[id].kind!="" or id in [34,37,38,39,40,46,47,48]: continue
+		var distance=V.distance(38,id)+(1 if V.tier(id)==0 else 0)
+		if distance<score: best=id;score=distance
+	return best
 
 func wait_ready():
-	for n in 16:
+	for n in 20:
+		if sim.s.pending=="" and sim.s.food>=sim.s.pop+3 and sim.s.turn%4 in [0,1]:
+			var needed=0
+			for id in sim.farms():
+				var next=S.F.Crops.for_sowing(sim.s,id)
+				if not sim.s.cells[id].crop: needed+=S.F.Crops.seed_cost(sim.s,next[0],next[1])
+			await stock_seed(needed)
+		if sim.s.era==3 and sim.s.modern_harvest and not S.Town.seed_ready(sim): await stock_seed(seed_target())
+		if difficulty==2 and sim.advance_reason()=="可用口粮不足":
+			await raise_food(S.Town.ERA_FOOD[sim.s.era])
 		if failed or sim.advance_reason()=="": return
-		if not check(sim.s.pending=="" and sim.s.outcome=="","waiting for prerequisites "+str(sim.s.pending)): return
+		if not check(sim.s.pending=="" and sim.s.outcome=="","waiting for prerequisites "+str([sim.s.pending,sim.s.end_reason,sim.s.turn,sim.s.frontier.region,sim.s.last_report])): return
 		if sim.s.era==2 and sim.mean_soil()<58:
 			for id in sim.farms():
 				var c=sim.s.cells[id]
 				if c.soil<64 and c.compost!=sim.s.turn and S.Town.working(c) and sim.s.food>=2:
 					await visit(id);await tap("field",[id,"compost"])
 			if sim.advance_reason()=="": return
-		await ticks(S.SEASON_TIME-sim.s.clock)
-	check(sim.advance_reason()=="","stage prerequisites "+str([sim.s.era,sim.advance_reason(),sim.s.food,sim.s.seed,sim.s.rain,sim.mean_soil()]))
+		await ticks(maxi(0,S.SEASON_TIME-sim.s.clock-1))
+		if difficulty==2: await food_for_season()
+		await ticks(1)
+	check(sim.advance_reason()=="","stage prerequisites "+str([sim.s.era,sim.advance_reason(),sim.s.food,sim.s.seed,sim.s.turn,sim.mean_soil(),sim.s.outcome,sim.s.last_report,sim.s.policy,sim.s.frontier.region]))
 
 func pay_to_advance(era: int):
 	if failed: return
@@ -214,8 +328,11 @@ func pay_to_advance(era: int):
 func first_seasons():
 	await tap("new")
 	await capture("08-difficulty")
+	for option in OS.get_cmdline_user_args():
+		if option.begins_with("--random-test-seed="): seed(int(option.trim_prefix("--random-test-seed=")))
 	await tap("difficulty",difficulty)
 	if game.dialog_key=="restart": await tap("confirmed_new")
+	report("Campaign start: %s, camp %d" % [S.F.REGIONS[sim.s.frontier.region],sim.s.frontier.home])
 	if not check(game.playing and sim.s.science==0 and game.world.selected==S.WILD[0],"new camp starts with zero technology points"): return
 	for i in 3: await tap("assign",["t"+str(S.WILD[0]),1])
 	check(sim.assigned("t"+str(S.WILD[0]),true)==0,"workers must travel before working")
@@ -236,7 +353,8 @@ func first_seasons():
 	await build("academy",38)
 	await tap("assign",["t38",1])
 	await finish_site(38)
-	await ticks(12)
+	await pave_to(sim.s.frontier.home);await pave_to(18);await pave_to(35)
+	await ticks(20)
 	check(sim.s.science==0 and sim.s.cells[38].notes>=2,"notes stay at school until a player claims them")
 	await capture("06-academy")
 	await learn("seed")
@@ -247,6 +365,7 @@ func first_seasons():
 	await build("farm",low);await build("farm",upland)
 	await finish_site(upland)
 	await learn("dry")
+	if sim.s.frontier.region==4: await install_cistern()
 	await build("store",34);await build("house",46)
 	await finish_site(34);await finish_site(46)
 	await key(KEY_SPACE)
@@ -279,6 +398,7 @@ func first_seasons():
 	await tap("assign",["t35",1])
 	await capture("09-workforce")
 	await tap("closepanel")
+	await raise_food(5)
 	await tap("panel","economy");await tap("budget",0);await tap("budget",1);await capture("10-budget")
 	await tap("economy_tab","market")
 	var stock=sim.s.stone
@@ -287,8 +407,12 @@ func first_seasons():
 	await tap("economy_tab","history");await capture("13-season-accounts");await tap("closepanel")
 	await ticks(2)
 	await bank_notes()
+	for n in 160:
+		if sim.s.turn%4==1 and sim.s.clock<6: break
+		await ticks(1)
 	await pay_to_advance(0)
 	await learn("dike");await learn("scout")
+	await stock_seed(seed_target()*2)
 	for i in 240:
 		if failed or sim.s.pending=="flood": break
 		await ticks(1)
@@ -310,7 +434,7 @@ func route(index: int):
 	await key(KEY_SPACE)
 	await ticks(S.SEASON_TIME-sim.s.clock)
 	check(sim.s.flood_time>0 and sim.s.flood_cells.has(low)==(index==1),"placement changes flood reach")
-	check(sim.s.cells[low].crop==(index==0),"field behind dyke keeps standing crop")
+	check(sim.s.cells[low].crop==(index==0),"field behind dyke keeps standing crop "+str([sim.s.seed,sim.s.turn,sim.s.cells[low].care,sim.s.cells[low].harvests,sim.s.frontier.region]))
 	results.append([sim.s.flood_cells.size(),sim.s.rescued,sim.s.lost])
 	if index==0:
 		await tap("panel","risk");await tap("overlay","")
@@ -319,10 +443,16 @@ func route(index: int):
 	for i in 3:
 		if sim.s.seed<4: await tap("reserve",false)
 	await tap("closepanel")
-	await visit(34)
-	await tap("site_work",["repair",34]);await finish_site(34)
+	await maintain("repair",34)
 	check(sim.s.cells[34].condition>=99,"paid repair restores condition")
 	await pay_to_advance(1)
+	if sim.s.frontier.region==4: await install_cistern()
+	if difficulty==2:
+		await tap("panel","economy");await tap("budget",0);await tap("closepanel")
+	var new_field=extra_plot();await build("farm",new_field);await finish_site(new_field)
+	if difficulty==2:
+		var fourth=extra_plot();await build("farm",fourth);await finish_site(fourth)
+	await stock_seed(seed_target())
 	await learn("terrace");await learn("rotate")
 	if index==0:
 		await build("terrace",low);await finish_site(low)
@@ -335,10 +465,13 @@ func route(index: int):
 		check(sim.s.policy.has("blight") and sim.s.policy.has("weeds") and sim.s.era==2,"irrigation and shared nursery cause distinct crises before modern age")
 	else:
 		await visit(upland);await tap("field",[upland,"rotation"])
-		await visit(34);await tap("site_work",["upgrade",34]);await finish_site(34)
+		await maintain("upgrade",34)
 		check(sim.s.cells[34].level==2 and S.Town.storage(sim.s)==120,"level-two warehouse increases usable capacity")
 	await pay_to_advance(2)
-	await ticks(S.SEASON_TIME*2)
+	for season in 2:
+		await ticks(S.SEASON_TIME-sim.s.clock-1)
+		if difficulty==2: await food_for_season()
+		await ticks(1)
 	check(not sim.s.policy.has("runoff") and sim.s.water==[0,0,0],"two modern seasons without fertilizer do not produce runoff")
 	await learn("machine");await learn("precise")
 	if index==0:
@@ -376,6 +509,8 @@ func frontier_campaign():
 	for id in [S.WILD[0],S.WILD[1]]:
 		await visit(id)
 		for n in 2: await tap("assign",["t"+str(id),1])
+	await build("academy",38);await finish_site(38)
+	await pave_to(s.frontier.home)
 	await tap("inventory")
 	await tap("frontier_action",["well",null])
 	await capture("beta-coast-water")
@@ -393,14 +528,15 @@ func frontier_campaign():
 	await tap("frontier_action",["trial",["粟",0]])
 	await tap("frontier_tab","牧场")
 	for cmd in ["pen","hens","goats","feed"]: await tap("frontier_action",[cmd,null])
-	await ticks(8)
+	await ticks(S.SEASON_TIME-s.clock)
 	if not check(s.frontier.eggs==1 and s.frontier.milk==2,"coastal herd produces food"): return
 	await capture("beta-herds")
 	var before=s.food
 	await tap("frontier_action",["provision",null])
 	check(s.food==before+3,"fresh dairy and eggs turn into rations on demand")
 	await tap("frontier_tab","运输")
-	await tap("frontier_action",["road",[0,1]])
+	await tap("street_between",[0,1]);await tap("street_confirm")
+	await tap("panel","frontier");await tap("frontier_tab","运输")
 	await tap("load_size",false)
 	await tap("frontier_action",["ship",[0,1,"people",1]])
 	await tap("frontier_action",["ship",[0,1,"food",1]])
@@ -411,7 +547,6 @@ func frontier_campaign():
 	await tap("frontier_action",["trial",["粟",1]])
 	await capture("beta-crops")
 	await tap("closepanel")
-	await build("academy",38);await finish_site(38)
 	await learn("seed")
 	await tap("panel","crew");await tap("reserve",false);await tap("closepanel")
 	await build("farm",37);await finish_site(37)
@@ -425,12 +560,61 @@ func frontier_campaign():
 	report("PASS coastal UI: region art, freshwater, scouts and saved return, two parents, milk and eggs, road, freight, migration and actual millet crop")
 	game.shutdown(0)
 
+func lesson_campaign():
+	await tap("new");await tap("region",2);await tap("difficulty",0)
+	if game.dialog_key=="restart": await tap("confirmed_new")
+	var s=sim.s
+	if not check(s.lesson_step==0 and game.hud.tech_branch=="麦","Danube starts with the wheat notebook and first task"): return
+	await tap("hint")
+	for n in 2: await tap("assign",["t19",1])
+	await visit(42)
+	for n in 2: await tap("assign",["t42",1])
+	await tap("hint");await choose_cell(38);await finish_site(38)
+	await tap("hint")
+	if not check(game.world.build_tool=="street" and game.world.road_end==s.frontier.home,"tutorial previews a funded road to the camp"): return
+	await capture("formal-street")
+	await tap("street_confirm")
+	await tap("hint");await tap("assign",["t38",1])
+	await ticks(20);await tap("collect",38)
+	await tap("hint");await tap("research","seed");await tap("closepanel");await ticks(10)
+	await tap("hint");await choose_cell(39);await finish_site(39)
+	await visit(39)
+	if not check(not s.cells[39].connected and sim.expected_yield(39)==0,"new disconnected farm shows an operational warning"): return
+	await capture("formal-offline");await tap("street_to",39);await tap("street_confirm")
+	await tap("hint");await tap("site_reserve",0)
+	await ticks(2)
+	if not check(s.cells[39].crop and s.lesson_step==7,"live tutorial follows actual first sowing"): return
+	await capture("formal-lesson")
+	for n in 180:
+		if s.first_crop or failed: break
+		await ticks(1)
+	if not check(s.lesson_step==8 or (s.first_crop and s.lesson_step==7),"first harvest reached"): return
+	await ticks(1)
+	if not check(s.lesson_step==8,"eight lessons completed by play"): return
+	await tap("panel","study");await tap("tech_branch","农具");await tap("tech_view","drill")
+	await capture("formal-almanac")
+	await tap("closepanel");await tap("panel","frontier");await tap("frontier_tab","探险")
+	await tap("frontier_action",["survey",[1,"稻"]]);await ticks(32)
+	await tap("closepanel");await tap("panel","study");await tap("tech_branch","稻");await tap("tech_view","rice_1")
+	if not check(S.Study.discovered(s,"稻") and not s.frontier.lines.has("稻"),"new crop research opens when the sample arrives"): return
+	await capture("formal-new-crop");await tap("closepanel")
+	await key(KEY_G);await tap("street_mode");await choose_cell(38);await choose_cell(39)
+	if not check(s.cells[39].connected,"demolition waits for confirmation"): return
+	await tap("street_confirm")
+	if not check(not s.cells[39].connected,"removing the physical path suspends the farm"): return
+	await tap("pausemenu");await tap("save");game.show_title();await tap("continue")
+	if not check(sim.s.lesson_step==8 and not sim.s.cells[39].connected and S.Study.discovered(sim.s,"稻"),"tutorial, roads and curricula survive a restart"): return
+	report("PASS formal tutorial, interactive paving, demolition preview, wheat research, sample discovery and persistent field state")
+	game.shutdown(0)
+
 func run(main,out: String):
 	game=main;sim=main.sim;folder=out
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--difficulty-test="): difficulty=int(arg.trim_prefix("--difficulty-test="))
 	picture=DisplayServer.get_name()!="headless"
 	report("Native replay on "+DisplayServer.get_name()+" at "+str(DisplayServer.window_get_size()))
+	if "--formal-test" in OS.get_cmdline_user_args():
+		await frames(10);await lesson_campaign();return
 	if "--frontier-test" in OS.get_cmdline_user_args():
 		await frames(10)
 		await frontier_campaign()
@@ -450,7 +634,9 @@ func run(main,out: String):
 	var position=chart.get_global_rect().position+chart.chart_point(V.center(outer))
 	click(position);await frames()
 	check(game.world.selected==outer and sim.capacity("t73")==0,"unclaimed map sector can be surveyed")
-	await tap("claim",V.sector(outer));await tap("assign",["t73",1])
+	await tap("claim",V.sector(outer))
+	await build("academy",38);await finish_site(38);await pave_to(outer)
+	await visit(outer);await tap("assign",["t73",1])
 	await ticks(20)
 	check(sim.s.districts.has(V.sector(outer)) and sim.s.frontier.posts[V.sector(outer)].wood>0,"outer sector is staffed and productive")
 	await tap("panel","crew");await tap("transfer_to","t18");await tap("transfer_from","t73")

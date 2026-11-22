@@ -42,9 +42,10 @@ func read(slot: String) -> Dictionary:
 	return {}
 
 func valid(state: Variant) -> bool:
-	if not state is Dictionary or not state.get("version",0) in [1,2,3,4]: return false
+	if not state is Dictionary or not state.get("version",0) in [1,2,3,4,5]: return false
 	var count=V.COLS*V.ROWS if state.version>=3 else V.CORE_CELLS
-	if state.version==4:
+	if state.version>=5 and not state.get("streets") is Dictionary: return false
+	if state.version>=4:
 		var frontier=state.get("frontier")
 		if not frontier is Dictionary: return false
 		if not frontier.get("region") is int or frontier.region<0 or frontier.region>=V.RELIEF.size(): return false

@@ -27,16 +27,20 @@ func _draw():
 	if w.selected>=0 and not marked.has(w.selected): marked.append(w.selected)
 	for id in game.hud.staff_alerts:
 		if not marked.has(id): marked.append(id)
+	for id in game.hud.road_alerts:
+		if id not in marked: marked.append(id)
 	for id in marked:
 		var p=w.camera.unproject_position(V.v3(V.center(id),1.12 if id==s.frontier.home else 0.79))
 		if not Rect2(12,74,size.x-24,size.y-155).has_point(p): continue
 		var name=game.sim.location_name(id)
 		if w.selected==id and game.edge_job!="": name="田堤"
 		var short_hands=game.hud.staff_alerts.has(id)
-		if short_hands: name=game.sim.job_label(game.hud.staff_alerts[id])+" · 缺工"
+		var blocked=s.cells[id].kind in S.Roads.WORKS and not s.cells[id].connected
+		if blocked: name+=" · 断路"
+		elif short_hands: name=game.sim.job_label(game.hud.staff_alerts[id])+" · 缺工"
 		var width=face.get_string_size(name,HORIZONTAL_ALIGNMENT_LEFT,-1,13).x+17
 		var box=Rect2(Vector2(p.x-width/2,p.y-24),Vector2(width,20))
 		draw_line(Vector2(p.x,p.y-4),p+Vector2(0,3),Color("#cfbc82"),1,true)
-		draw_rect(box,Color("#743f2e") if short_hands else Color(0.055,0.12,0.12,0.89))
+		draw_rect(box,Color("#743f2e") if short_hands or blocked else Color(0.055,0.12,0.12,0.89))
 		draw_line(box.position,box.position+Vector2(width,0),Color(0.83,0.73,0.48,0.74),1)
 		draw_string(face,box.position+Vector2(8,15),name,HORIZONTAL_ALIGNMENT_LEFT,-1,13,Color("#efe4c9"))

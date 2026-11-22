@@ -22,13 +22,54 @@ const ECOLOGY=[
 const FORAGE=[[0,0,0,0],[-2,3,0,-1],[2,0,0,0],[0,1,1,-2],[1,1,-1,0],[0,2,0,-1]]
 const MUTATION=[[22,5],[14,12],[7,22]]
 const SOURCES=["丰穗系","耐逆系"]
+const CODES={"稻":"rice","粟":"millet","麦":"wheat","薯":"potato","豆":"bean","玉米":"maize"}
+const BASE={"稻":7,"粟":5,"麦":8,"薯":12,"豆":4,"玉米":10}
+const SEED={"稻":2,"粟":1,"麦":2,"薯":3,"豆":1,"玉米":2}
+const FEED={"稻":0,"粟":1,"麦":0,"薯":0,"豆":0,"玉米":2}
+const SOIL={"稻":-1,"粟":0,"麦":-1,"薯":-2,"豆":5,"玉米":-3}
+const VARIETIES=["原种","丰穗系","耐逆系"]
+
+static func variety_name(s: Dictionary,id: int) -> String:
+	var crop=field_species(s,id)
+	return s.frontier.cultivars.get(id,s.frontier.preferred.get(crop,"原种"))
+
+static func for_sowing(s: Dictionary,id: int) -> Array:
+	var cell=s.cells[id]
+	var crop=cell.get("next_species",field_species(s,id))
+	var kind=cell.get("next_variety",variety_name(s,id))
+	if not s.frontier.varieties.get(crop,{}).has(kind): kind=s.frontier.preferred.get(crop,"原种")
+	return [crop,kind]
+
+static func seed_cost(s: Dictionary,crop: String,kind: String) -> int:
+	var need=int(SEED[crop])
+	if kind=="丰穗系": need+=1
+	if kind=="耐逆系" or ("drill" in s.tech and crop in ["粟","麦","玉米"]): need-=1
+	return maxi(1,need)
+
+static func profiles(s: Dictionary):
+	var f=s.frontier
+	f.merge({"cultivars":{},"preferred":{},"varieties":{}})
+	for crop in f.lines:
+		if not f.varieties.has(crop): f.varieties[crop]={"原种":f.lines[crop].duplicate()}
+		if not f.preferred.has(crop): f.preferred[crop]="原种"
+
+static func known(s: Dictionary,crop: String,kind: String) -> Dictionary:
+	return s.frontier.varieties.get(crop,{}).get(kind,s.frontier.lines.get(crop,line()))
+
+static func method(s: Dictionary,crop: String,stage: int) -> bool:
+	return CODES[crop]+"_"+str(stage) in s.tech
+
+static func fodder(s: Dictionary,crop: String) -> int:
+	var extra={"粟":3,"豆":1,"玉米":4}.get(crop,0) if method(s,crop,3) else 0
+	return FEED[crop]+extra
+
 
 static func title(crop: String) -> String:
 	return TITLES[NAMES.find(crop)]
 
 static func add_sample(f: Dictionary,crop: String,source: int,amount: int):
 	if not f.samples.has(crop): f.samples[crop]=[0,0]
-	f.samples[crop][source]+=amount
+	if f.samples[crop][source]<12: f.samples[crop][source]=mini(12,f.samples[crop][source]+amount)
 
 static func field_species(s: Dictionary,id: int) -> String:
 	return s.frontier.plots.get(id,START[s.frontier.region])
@@ -53,7 +94,7 @@ static func start_trial(s: Dictionary,crop: String,source: int):
 	var cultivated=f.lines.has(crop)
 	var parent=f.lines.get(crop,line())
 	var offspring=parent.duplicate()
-	if source==0: offspring.yield_bonus=mini(8,parent.yield_bonus+(2 if cultivated else 1))
+	if source==0: offspring.yield_bonus=mini(5,parent.yield_bonus+(2 if cultivated else 1))
 	else: offspring.vigor=mini(4,parent.vigor+1)
 	f.samples[crop][source]-=2
 	s.food-=2
@@ -66,7 +107,11 @@ static func finish_trials(m):
 	for crop in f.trials.keys():
 		var trial=f.trials[crop]
 		if m.s.time<trial.due: continue
-		f.lines[crop]=trial.line
+		var name=SOURCES[trial.source]
+		if not f.varieties.has(crop): f.varieties[crop]={"原种":line()}
+		f.varieties[crop][name]=trial.line.duplicate()
+		f.preferred[crop]=name
+		f.lines[crop]=f.varieties[crop][name]
 		f.trials.erase(crop)
 		f.last="%s%s完成，丰产 %+d，耐逆 %d。可在农田安排下茬。" % [title(crop),"杂交" if trial.cross else "驯化",trial.line.yield_bonus,trial.line.vigor]
 		m.note(f.last)
@@ -77,9 +122,12 @@ static func field_bonus(s: Dictionary,id: int) -> int:
 	var crop=field_species(s,id)
 	var cell=s.cells[id]
 	var variety=cell.get("sown_line",{}) if cell.crop else {}
-	if variety.is_empty(): variety=f.lines.get(crop,line())
+	var cultivar=cell.get("sown_variety",variety_name(s,id)) if cell.crop else variety_name(s,id)
+	if variety.is_empty(): variety=known(s,crop,cultivar)
 	var tier=V.tier(id)
-	var bonus=int(variety.yield_bonus)
+	var bonus=int(variety.yield_bonus)+(1 if method(s,crop,1) else 0)
+	if cultivar=="丰穗系": bonus+=2
+	if cultivar=="耐逆系": bonus-=1
 	match crop:
 		"稻": bonus+=3 if tier==0 else 0
 		"粟": bonus+=4 if tier==2 or f.region==1 else 0
@@ -87,15 +135,19 @@ static func field_bonus(s: Dictionary,id: int) -> int:
 		"薯": bonus+=5 if tier==2 or f.region==3 else 0
 		"玉米": bonus+=4 if tier==1 or f.region==5 else 0
 	var dry=f.region==4 and f.water_short>0
+	if method(s,crop,2):
+		var fits={"稻":tier==0,"粟":tier==2 or cell.soil<58,"麦":tier==1 or f.region==2,"薯":tier==2 or f.region==3,"豆":cell.care>=30,"玉米":tier==1 or f.region==5}
+		if fits[crop]: bonus+=4 if crop=="薯" else 3
 	if cell.soil<58 or cell.disease>0 or dry:
-		bonus+=2*int(variety.vigor)
+		bonus+=2*int(variety.vigor)+(3 if cultivar=="耐逆系" else 0)
 	if dry: bonus-=4
 	return bonus
 
 static func harvested(m,id: int):
 	var f=m.s.frontier
 	var crop=field_species(m.s,id)
-	if crop=="豆": m.s.cells[id].soil=mini(96,m.s.cells[id].soil+5)
+	var delta_soil=SOIL[crop]+(4 if crop=="豆" and method(m.s,crop,3) else 0)
+	m.s.cells[id].soil=clampi(m.s.cells[id].soil+delta_soil,10,96)
 	add_sample(f,crop,0,1)
 	if f.mutation_turn.get(crop,-1)==m.s.turn: return
 	f.mutation_turn[crop]=m.s.turn
@@ -103,7 +155,9 @@ static func harvested(m,id: int):
 	var dice=roll(f)
 	var delta=1 if dice<odds[0] else (-1 if dice<odds[0]+odds[1] else 0)
 	if delta!=0:
-		var current=f.lines[crop]
-		current.yield_bonus=clampi(current.yield_bonus+delta,-4,8)
+		var name=m.s.cells[id].get("sown_variety",variety_name(m.s,id))
+		var current=known(m.s,crop,name)
+		current.yield_bonus=clampi(current.yield_bonus+delta,-3,5)
+		if f.preferred.get(crop,"原种")==name: f.lines[crop]=current
 		f.last="%s留种出现%s变异。下茬丰产修正 %+d。" % [title(crop),"有利" if delta>0 else "不利",current.yield_bonus]
 		m.note(f.last)

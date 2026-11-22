@@ -1,6 +1,7 @@
 extends RefCounted
 
 const V=preload("res://valley.gd")
+const Town=preload("res://settlement.gd")
 const DIFFICULTIES=[
 	{"name":"丰年","food":42,"wood":22,"stone":12,"yield_pct":115,"cost_pct":75},
 	{"name":"常年","food":30,"wood":16,"stone":9,"yield_pct":100,"cost_pct":100},
@@ -9,7 +10,7 @@ const BUDGETS=["节用","常规","充足"]
 const FUND_COST=[70,100,135]
 const FUND_YIELD=[85,100,115]
 const ERA_COST=[0,2,5,8]
-const ERA_YIELD=[0,3,7,12]
+const ERA_YIELD=[0,2,5,8]
 const LAND_FEE=[0,2,1,2]
 const LAND_PRICE=[0,8,6,10]
 const LAND_FEATURE=["","竹木场每 7 人秒产 1 木。","采石场每 9 人秒产 1 石。","临河低田每块基础秋收加 5 份，夏汛时要留意来水口。"]
@@ -32,6 +33,12 @@ static func supply(s: Dictionary,kind: String,amount: int):
 static func warehouse(s: Dictionary,zone: int) -> Dictionary:
 	return s if zone==0 else s.frontier.posts[zone]
 
+static func inbound(s: Dictionary,zone: int,key: String) -> int:
+	var booked=0
+	for order in s.frontier.missions:
+		if order.kind=="ship" and order.to==zone and order.key==key: booked+=order.amount
+	return booked
+
 static func book_stock(s: Dictionary,zone: int,key: String,amount: int,column: String=""):
 	if zone==0 and key in ["wood","stone"]:
 		supply(s,key,amount)
@@ -43,7 +50,7 @@ static func book_stock(s: Dictionary,zone: int,key: String,amount: int,column: S
 static func open_district(s: Dictionary,zone: int):
 	if not s.districts.has(zone): s.districts.append(zone)
 	if not s.frontier.posts.has(zone):
-		s.frontier.posts[zone]={"people":0,"food":0,"seed":0,"wood":0,"stone":0,"short":0,"spoil":0}
+		s.frontier.posts[zone]={"people":0,"food":0,"seed":0,"wood":0,"stone":0,"short":0,"spoil":0,"feed":0}
 
 static func inputs_reason(s: Dictionary,materials: Array) -> String:
 	if s.wood<materials[0] or s.stone<materials[1]: return "工程需 %d 木、%d 石。可到料场派工或在收支面板换货" % materials
@@ -86,18 +93,26 @@ static func settle(s: Dictionary):
 	if paid<due: s.organization=maxi(0,s.organization-2)
 
 static func flows(b: Dictionary) -> Array:
-	return [b.gather+b.crop+b.refund+b.exports+b.get("freight_in",0)+b.get("livestock",0),b.get("freight_out",0)+b.get("husbandry",0)+b.get("explore",0)+b.eat+b.build+b.maintenance+b.sow+b.advance+b.loss+b.spoil+b.operations+b.imports+b.recruit+b.land]
+	return [b.gather+b.crop+b.refund+b.exports+b.get("freight_in",0)+b.get("livestock",0),b.get("freight_out",0)+b.get("husbandry",0)+b.get("explore",0)+b.get("research",0)+b.eat+b.build+b.maintenance+b.sow+b.advance+b.loss+b.spoil+b.operations+b.imports+b.recruit+b.land]
 
-static func trade(s: Dictionary,kind: String,buy: bool) -> String:
+static func trade_reason(s: Dictionary,kind: String,buy: bool) -> String:
 	if not LOT.has(kind): return "未知货物"
 	var amount=LOT[kind]
 	if buy:
+		if s[kind]+amount+inbound(s,0,kind)>Town.material_space(s,0,kind): return "营地料仓放不下整批货物"
 		if s.food<5: return "换货需要 5 份口粮"
+	elif s[kind]<amount: return "库存不足一批"
+	return ""
+
+static func trade(s: Dictionary,kind: String,buy: bool) -> String:
+	var why=trade_reason(s,kind,buy)
+	if why!="": return why
+	var amount=LOT[kind]
+	if buy:
 		s.food-=5
 		s.ledger.imports+=5
 		supply(s,kind,amount)
 	else:
-		if s[kind]<amount: return "库存不足一批"
 		supply(s,kind,-amount)
 		s.food+=2
 		s.ledger.exports+=2

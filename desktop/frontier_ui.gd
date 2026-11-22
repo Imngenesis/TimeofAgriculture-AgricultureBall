@@ -104,6 +104,11 @@ static func crops(h,v):
 		var line=f.lines[crop]
 		info.add_child(U.label("栽培品系　丰产 %+d　耐逆 %d" % [line.yield_bonus,line.vigor],15,U.GREEN))
 	else: info.add_child(U.label("尚待驯化 · 探险可带回地方种源",14,U.GOLD))
+	info.add_child(U.label("基础粮 %d · 原种用种 %d · 饲料 %d · 地力 %+d" % [C.BASE[crop],C.SEED[crop],C.fodder(s,crop),C.SOIL[crop]],14,U.GOLD,true))
+	if cultivated:
+		for name in f.varieties[crop]:
+			var stats=f.varieties[crop][name]
+			info.add_child(U.label("%s　丰产 %+d · 耐逆 %d · 用种 %d" % [name,stats.yield_bonus,stats.vigor,C.seed_cost(s,crop,name)],12,U.DIM,true))
 	var samples=f.samples.get(crop,[0,0])
 	info.add_child(U.label("地方种源　丰穗 %d　/　耐逆 %d" % samples,14,U.DIM))
 	var trial=U.box(false,6);v.add_child(trial)
@@ -116,6 +121,10 @@ static func crops(h,v):
 	v.add_child(U.label("在农田面板可指定下茬。采集地每采 4 粮留一份种源，栽培收获也能留种。",14,U.TEXT,true))
 	var odds=C.MUTATION[s.difficulty]
 	v.add_child(U.label("本年景每种作物每季首次收获　有利变异 %d%%　不利变异 %d%%" % odds,13,U.GOLD,true))
+	if h.sim.Study.discovered(s,crop): choice(h,v,"查看"+C.title(crop)+"农学分支","open_crop_study",crop)
+	var stockrow=U.box(false,6);v.add_child(stockrow)
+	stockrow.add_child(U.label("营地种仓 %d / %d" % [s.seed,h.T.seed_space(s,0)],14,U.DIM))
+	stockrow.add_child(h.btn("封存 2 粮","reserve",false));stockrow.add_child(h.btn("解封种粮","reserve",true))
 	if not f.disease.is_empty(): disease(v,f.disease)
 
 static func disease(v,entry):
@@ -139,6 +148,9 @@ static func survey(h,v):
 
 static func livestock(h,v):
 	var f=h.sim.s.frontier
+	if not h.sim.s.cells[f.home].connected:
+		v.add_child(U.label("畜栏需由营地通路到农专，接入后季末才会产蛋奶。",14,U.WARN,true))
+		if F.Roads.root(h.sim.s)>=0: choice(h,v,"为营地规划道路","street_to",f.home)
 	var row=U.box(false,6);v.add_child(row)
 	U.metric(row,"已用 / 栏位","%d / %d" % [f.hens+f.goats+f.broods.size(),f.pens*3])
 	U.metric(row,"鸡群",str(f.hens));U.metric(row,"羊群",str(f.goats));U.metric(row,"饲料",str(f.feed))
@@ -180,19 +192,21 @@ static func freight(h,v):
 		for stop in lane.stops: places.append(V.SECTORS[stop])
 		name="经"+"、".join(places)+"转运"
 	v.add_child(U.label("%s　·　%d 秒　·　每批最多 %d 份" % [name,lane.time,count],17,U.GOLD))
-	action(h,v,"修建两地直达道路 · 3 木 2 石","road",[a,b])
+	choice(h,v,"在地图上规划两地道路","street_between",[a,b])
 	v.add_child(U.rule())
 	var modes=U.box(false,5);v.add_child(modes)
 	modes.add_child(U.label("发运数量",14,U.DIM))
 	choice(h,modes,"单份","load_size",false,not h.full_load)
 	choice(h,modes,"尽量装满","load_size",true,h.full_load)
 	var goods=U.box(false,4);v.add_child(goods)
-	for k in ["food","seed","wood","stone","people"]:
+	for k in ["food","seed","wood","stone","feed","people"]:
 		var avail=F.stock(s,a,k)
-		var units=1 if not h.full_load or k=="people" else maxi(1,mini(count,avail))
+		var space=F.free_space(s,b,k) if k in ["wood","stone","seed","feed"] else count
+		var units=1 if not h.full_load or k=="people" else maxi(1,mini(space,mini(count,avail)))
 		action(h,goods,"%s ×%d" % [F.LABEL[k],units],"ship",[a,b,k,units])
 	for place in [a,b]:
 		v.add_child(U.label("%s　%d 人　%d 粮　%d 种　%d 木　%d 石" % [V.SECTORS[place],F.stock(s,place,"people"),F.stock(s,place,"food"),F.stock(s,place,"seed"),F.stock(s,place,"wood"),F.stock(s,place,"stone")],14,U.TEXT,true))
+		if not s.cells[F.anchor(s,place)].connected: v.add_child(U.label("尚未通往农专 · 仅可徒步运送，常规生产暂停",13,U.WARN,true))
 		if place>0:
 			v.add_child(U.label("口粮仓容 %d　" % h.T.storage(s,place)+F.LOCAL[place]+("　上季缺 %d 粮" % f.posts[place].short if f.posts[place].short else ""),13,U.DIM))
 	for j in f.missions:
@@ -208,7 +222,7 @@ static func inventory(h,v):
 		for p in f.posts.values(): away+=p[k]
 		for j in f.missions:
 			if j.key==k: transit+=j.amount
-		v.add_child(U.label("%s　　%d　/　%d　/　%d" % [F.LABEL[k],s[k],away,transit],15,U.TEXT))
+		v.add_child(U.label("%s　　%d　/　%d　/　%d" % [F.LABEL[k],F.stock(s,0,k),away,transit],15,U.TEXT))
 	v.add_child(U.label("畜产　蛋 %d　奶 %d　饲料 %d　厩肥 %d" % [f.eggs,f.milk,f.feed,f.manure],14,U.DIM))
 	if f.region==4:
 		var w=F.Farm.spring_water(s)

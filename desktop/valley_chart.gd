@@ -47,9 +47,9 @@ func _draw():
 		elif c.project!="" or (c.kind!="" and c.kind!="wild"):
 			draw_rect(Rect2(point-Vector2(2,1.6),Vector2(4,3.2)),U.GOLD)
 	var s=game.sim.s
-	for pair in s.frontier.roads.values():
+	for pair in s.streets.values():
 		var points=PackedVector2Array()
-		for p in F.route_points(s,pair[0],pair[1]): points.append(chart_point(p))
+		for p in F.Roads.points(pair): points.append(chart_point(p))
 		draw_polyline(points,Color("#e6c78c"),1.25,true)
 	for z in s.frontier.posts:
 		var base=chart_point(V.center(F.anchor(s,z)))
@@ -66,5 +66,6 @@ func _gui_input(event):
 		var uv=(event.position-f.position)/f.size
 		var id=V.cell_at(uv*Vector2(42,28)-Vector2(21,14))
 		if id>=0:
-			game.command("jump",id)
+			if game.world.build_tool=="street": game.road_click(id)
+			else: game.command("jump",id)
 			accept_event()

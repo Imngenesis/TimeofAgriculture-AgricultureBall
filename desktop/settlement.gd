@@ -7,12 +7,13 @@ const CAMP_BEDS=10
 const HOUSE_BEDS=4
 const CAMP_STORAGE=48
 const STORE_STORAGE=36
-const LESSON=12
+const LESSON=18
+const C=preload("res://crop_book.gd")
 const ERA_FOOD=[12,20,32,0]
 const CORE=[["seed","dry"],["dike","scout"],["terrace","rotate"],["machine","precise"]]
 
 static func working(c: Dictionary) -> bool:
-	return c.kind!="" and c.project=="" and not c.flood and c.condition>=WORKING_CONDITION
+	return c.kind!="" and c.project=="" and not c.flood and c.condition>=WORKING_CONDITION and (c.kind not in ["farm","house","store","canal","nursery","station","wood","stone"] or c.get("connected",false))
 
 static func facilities(s: Dictionary,kind: String,active: bool=true) -> Array:
 	var found=[]
@@ -43,11 +44,22 @@ static func storage(s: Dictionary,zone: int=0) -> int:
 		if V.sector(id)==zone: capacity+=STORE_STORAGE*s.cells[id].level
 	return capacity
 
+static func seed_space(s: Dictionary,zone: int) -> int:
+	var plots=0
+	for id in facilities(s,"farm"):
+		if V.sector(id)==zone: plots+=1
+	return 8+3*plots+floori((storage(s,zone)-(CAMP_STORAGE if zone==0 else 24))/6.0)
+
+static func material_space(s: Dictionary,zone: int,key: String) -> int:
+	var bonus=storage(s,zone)-(CAMP_STORAGE if zone==0 else 24)
+	return (40 if key=="wood" else 30)+floori(bonus/2.0)
+
 static func seed_ready(game) -> bool:
 	var need={}
 	for id in game.farms():
 		var zone=V.sector(id)
-		need[zone]=need.get(zone,0)+2
+		var next=C.for_sowing(game.s,id)
+		need[zone]=need.get(zone,0)+C.seed_cost(game.s,next[0],next[1])
 	for zone in need:
 		var bin=game.s if zone==0 else game.s.frontier.posts[zone]
 		if bin.seed<need[zone]: return false
@@ -55,7 +67,7 @@ static func seed_ready(game) -> bool:
 
 static func covered(s: Dictionary,id: int,kind: String) -> bool:
 	for other in facilities(s,kind):
-		if V.distance(id,other)<=s.cells[other].level: return true
+		if V.distance(id,other)<=s.cells[other].level+(1 if kind=="canal" and "pump" in s.tech else 0): return true
 	return false
 
 static func demographics(s: Dictionary,served: int) -> int:
@@ -102,5 +114,5 @@ static func requirements(game) -> Dictionary:
 			structures=[[farms.size()>=2,"2 块投产农田"],[not facilities(s,"station").is_empty() or game.tagged("ditch"),"有效农机站或田间净水沟"]]
 			survival=[[s.modern_harvest,"使用农机、配肥或净水沟完成一次秋收"],[not s.sick and (s.blight_at<0 or s.after_blight),"出现病情时，受影响农田恢复收获"],[s.water[2]<=23,"下游污染 ≤ 23（当前 %d）" % s.water[2]],[s.full>=2 and seed_ready(game),"连续两季供足口粮，留足下次播种所需"]]
 	var techs=[]
-	for key in CORE[s.era]: techs.append([s.tech.has(key),game.TECH[key][0]])
+	for key in CORE[s.era]: techs.append([s.tech.has(key),game.tech_name(key)])
 	return {"建设":structures,"科技":techs,"生存":survival}

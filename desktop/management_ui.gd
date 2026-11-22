@@ -15,6 +15,12 @@ static func recruit_button(h,v):
 
 static func workforce(h,v):
 	var m=h.sim
+	if not h.road_alerts.is_empty():
+		v.add_child(U.label("道路停工　%d 处" % h.road_alerts.size(),16,U.WARN))
+		for id in h.road_alerts:
+			var link=h.btn("%s　%s　·　%s" % [V.address(id),m.location_name(id),"预览接路" if m.Roads.root(m.s)>=0 else "选址建农专"],"street_to" if m.Roads.root(m.s)>=0 else "academy",id if m.Roads.root(m.s)>=0 else null)
+			v.add_child(link)
+		v.add_child(U.rule())
 	var s=m.s
 	var walking=0
 	for w in s.workers:
@@ -69,9 +75,9 @@ static func balance(h,v):
 	var s=m.s
 	var row=U.box(false,6);v.add_child(row)
 	U.metric(row,"口粮 / 仓容","%d / %d" % [s.food,T.storage(s)])
-	U.metric(row,"种粮",str(s.seed),U.GREEN)
-	U.metric(row,"木料",str(s.wood))
-	U.metric(row,"石料",str(s.stone))
+	U.metric(row,"种粮 / 种仓","%d / %d" % [s.seed,T.seed_space(s,0)],U.GREEN)
+	U.metric(row,"木料 / 料仓","%d / %d" % [s.wood,T.material_space(s,0,"wood")])
+	U.metric(row,"石料 / 料仓","%d / %d" % [s.stone,T.material_space(s,0,"stone")])
 	var tabs=U.box(false,5);v.add_child(tabs)
 	for item in [["budget","本季预算"],["market","料场与换货"],["stocks","库存与水务"],["history","历季账簿"]]:
 		var tab=h.btn(item[1],"economy_tab",item[0],h.economy_tab==item[0])
@@ -88,8 +94,7 @@ static func budget(h,v):
 	var costs=E.budget(s)
 	var crop=0
 	if s.turn%4==2:
-		for id in m.farms():
-			if V.sector(id)==0 and s.cells[id].crop: crop+=maxi(0,m.expected_yield(id)-2)
+		crop=m.forecast_harvest(0).food
 	var net=s.food+crop-s.pop-costs.total
 	var balance_text="预计缺口 %d 粮" % -net if net<0 else "预计季末口粮 %d" % mini(net,T.storage(s))
 	v.add_child(U.label("%s　·　居民需 %d / 公共支出 %d" % [balance_text,s.pop,costs.total],17,U.WARN if net<0 else U.GREEN,true))
@@ -112,8 +117,10 @@ static func market(h,v):
 		var amount=E.LOT[k]
 		var name="木" if k=="wood" else "石"
 		var trades=U.box(false,6);v.add_child(trades)
-		var buy=h.btn("5 粮换 %d %s" % [amount,name],"trade",[k,true]);buy.disabled=s.food<5
-		var sell=h.btn("%d %s换 2 粮" % [amount,name],"trade",[k,false]);sell.disabled=s[k]<amount
+		var buy=h.btn("5 粮换 %d %s" % [amount,name],"trade",[k,true])
+		var sell=h.btn("%d %s换 2 粮" % [amount,name],"trade",[k,false])
+		buy.tooltip_text=E.trade_reason(s,k,true);buy.disabled=buy.tooltip_text!=""
+		sell.tooltip_text=E.trade_reason(s,k,false);sell.disabled=sell.tooltip_text!=""
 		for b in [buy,sell]: b.size_flags_horizontal=Control.SIZE_EXPAND_FILL;trades.add_child(b)
 	v.add_child(U.rule())
 	v.add_child(U.label("料场生产",17,U.GOLD))
@@ -137,4 +144,5 @@ static func history(h,v):
 	v.add_child(U.label("畜产配给 +%d　到货 +%d　发货 −%d　农牧试种 −%d　探险 −%d\n新产蛋 %d / 奶 %d，鲜奶到期 %d" % [b.livestock,b.freight_in,b.freight_out,b.husbandry,b.explore,b.eggs,b.milk,b.dairy_loss],14,U.TEXT,true))
 	v.add_child(U.rule())
 	v.add_child(U.label("上季结算",17,U.GOLD))
+	v.add_child(U.label("研究耗粮种 %d · 秋收副产饲料 %d" % [b.get("research",0),b.get("fodder",0)],14,U.GOLD))
 	v.add_child(U.label("野粮 +%d　秋收 +%d　售料 +%d　撤工 +%d\n发粮 −%d　公共拨付 −%d / 应付 %d　买料 −%d\n招募 −%d　拓地 −%d　工程农事 −%d　检修防御 −%d　晋阶 −%d\n播种 −%d　灾损 −%d　溢仓 −%d\n木料 +%d / −%d　石料 +%d / −%d" % [b.gather,b.crop,b.exports,b.refund,b.eat,b.operations,b.due,b.imports,b.recruit,b.land,b.build,b.maintenance,b.advance,b.sow,b.loss,b.spoil,b.wood_in,b.wood_out,b.stone_in,b.stone_out],14,U.TEXT,true))

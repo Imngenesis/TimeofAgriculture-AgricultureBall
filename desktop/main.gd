@@ -68,6 +68,7 @@ func start_game(restored: Dictionary={}):
 	difficulty=sim.s.difficulty
 	if world.terrain_region!=sim.s.frontier.region:
 		remove_child(world);world.queue_free();world=World.new();add_child(world);world.setup(sim)
+	world.road_start=-1;world.road_end=-1;world.build_tool=""
 	transfer_target=""
 	paused=false;playing=true;speed=1;acc=0;edge_job="";dialog_key=""
 	world.set_menu(false)
@@ -122,11 +123,64 @@ func select(id: int,focus: bool=false):
 	if focus: world.focus(id)
 	world.refresh();hud.rebuild_details(true)
 
+func road_begin(a: int=-1,b: int=-1):
+	hud.panel_key=""
+	world.selected=-1
+	world.build_tool="street"
+	world.road_start=a
+	world.road_end=b
+	world.removing=false
+	if b>=0: world.focus(b)
+
+func join_site(id: int):
+	var source=Model.Roads.root(sim.s)
+	if source<0:
+		hud.notify("先建成农专，才有可接入的路网。")
+		return
+	var trail=Model.Roads.path(sim.s,source,id)
+	for i in trail:
+		if sim.s.cells[i].connected: source=i
+	road_begin(source,id)
+
+func road_click(id: int,confirmed: bool=false):
+	if not Model.Roads.passable(sim.s,id):
+		hud.notify("请选择已开通圩区的陆地。");return
+	if world.road_start<0:
+		world.road_start=id
+		world.road_end=-1
+	else:
+		if world.removing and not confirmed:
+			world.road_end=id;refresh(true);return
+		var why=Model.Roads.dismantle(sim.s,world.road_start,id) if world.removing else Model.Roads.build(sim.s,world.road_start,id)
+		if why!="": hud.notify(why,true);return
+		var preset=world.road_end>=0
+		world.road_start=id;world.road_end=-1
+		if preset:
+			world.build_tool="";select(id)
+		audio.effect("finish")
+		hud.notify("道路已拆除，沿线岗位状态已更新。" if world.removing else "道路已铺至"+Valley.address(id)+"。")
+	Model.Lesson.update(sim)
+	refresh(true)
+
+func teach():
+	var s=sim.s
+	match s.lesson_step:
+		0: select(Model.WILD[0],true)
+		1,3: command("academy")
+		2: join_site(s.frontier.home)
+		4:
+			hud.panel_key="study"
+			hud.tech_branch=Model.F.START[s.frontier.region];hud.tech_key="seed"
+		5,6,7:
+			var id=Model.Lesson.field(sim)
+			if id<0: command("tool","farm")
+			else: select(id,true)
+
 func place(id: int,direction: int):
 	var kind=world.build_tool
 	var why=sim.construct(kind,id,direction)
 	if why!="":
-		hud.notify(why);return
+		hud.notify(why,true);return
 	world.build_tool=""
 	world.edge_shift=0
 	select(id)
@@ -145,6 +199,20 @@ func command(cmd: String,arg=null):
 		"region":
 			if dialog_key!="difficulty" or int(arg)<0 or int(arg)>=Model.F.REGIONS.size(): return
 			start_region=int(arg);modal("difficulty")
+		"street_start": road_begin(int(arg))
+		"street_mode": world.removing=not world.removing;world.road_end=-1;world.road_start=-1
+		"street_to": join_site(int(arg))
+		"street_between": road_begin(Model.F.anchor(sim.s,arg[0]),Model.F.anchor(sim.s,arg[1]))
+		"street_confirm": road_click(world.road_end if world.road_end>=0 else world.hover,true)
+		"street_end": world.build_tool="";world.road_start=-1;world.road_end=-1
+		"lesson_toggle": sim.s.lesson_hidden=true;hud.notify("已收起田课。按 J 可再次打开。")
+		"lesson_open":
+			if dialog_key!="": close_modal()
+			sim.s.lesson_hidden=false;sim.s.lesson_step=0;Model.Lesson.update(sim)
+			if sim.s.lesson_step>=Model.Lesson.STEPS.size(): modal("lesson_book")
+		"tech_branch": hud.tech_branch=arg;hud.tech_key=""
+		"tech_view": hud.tech_key=arg
+		"open_crop_study": hud.panel_key="study";hud.tech_branch=arg;hud.tech_key=""
 		"frontier_tab": hud.frontier_tab=arg
 		"atlas_crop": hud.atlas_crop=arg
 		"load_size": hud.full_load=arg
@@ -155,10 +223,21 @@ func command(cmd: String,arg=null):
 			else:
 				if arg[1]==hud.freight_from: hud.freight_from=hud.freight_to
 				hud.freight_to=arg[1]
+		"resource":
+			world.build_tool=""
+			match arg:
+				"food": hud.panel_key="economy";hud.economy_tab="budget"
+				"seed": hud.panel_key="frontier";hud.frontier_tab="种圃"
+				"materials": hud.panel_key="economy";hud.economy_tab="stocks"
+				"crew": hud.panel_key="crew"
+				"science": hud.panel_key="study"
 		"inventory": hud.panel_key="economy";hud.economy_tab="stocks"
 		"survey_map": hud.panel_key="frontier";hud.frontier_tab="探险"
 		"shipping_map": hud.panel_key="frontier";hud.frontier_tab="运输";hud.freight_from=0;hud.freight_to=arg
 		"site_reserve": result=sim.reserve(false,arg)
+		"field_seed":
+			result=sim.field_seed(int(arg))
+			if result=="": hud.notify("已按本田下茬用量封存种粮。")
 		"frontier_action":
 			result=Model.F.action(sim,arg[0],arg[1])
 			if result=="": hud.notify(sim.s.frontier.last)
@@ -214,7 +293,7 @@ func command(cmd: String,arg=null):
 			select(sim.s.edges[arg].a,true);edge_job="e"+arg
 		"research":
 			result=sim.research(arg)
-			if result=="": hud.notify("开始研习「"+Model.TECH[arg][0]+"」，需要农专人员投入 8 人秒。")
+			if result=="": hud.notify("开始研习「%s」，需 %d 人秒。" % [sim.tech_name(arg),sim.s.study_time])
 		"academy":
 			if sim.academy_id()>=0: select(sim.academy_id(),true)
 			else:
@@ -248,7 +327,10 @@ func command(cmd: String,arg=null):
 		"reserve":
 			result=sim.reserve(arg)
 			if result=="": hud.notify("口粮 %d · 种粮 %d" % [sim.s.food,sim.s.seed])
-		"assign": result=sim.assign(arg[0],arg[1])
+		"assign":
+			result=sim.assign(arg[0],arg[1])
+			var site=sim.job_tile(arg[0])
+			if result=="" and arg[1]>0 and sim.s.cells[site].kind in Model.Roads.WORKS and not sim.s.cells[site].connected: hud.notify("已派人待命，接入农专后开工。",true)
 		"recruit":
 			result=sim.recruit()
 			if result=="": hud.notify("已招募 1 名居民，每季口粮增加 1 份。")
@@ -302,7 +384,8 @@ func command(cmd: String,arg=null):
 				write_save("campaign")
 				hud.notify("部署完毕后，按空格让时间继续。")
 		"hint":
-			if sim.s.era==0:
+			if not sim.s.lesson_hidden and sim.s.lesson_step<Model.Lesson.STEPS.size(): teach()
+			elif sim.s.era==0:
 				if sim.assigned("t"+str(Model.WILD[0]))<2 and not sim.s.first_crop: select(Model.WILD[0],true)
 				elif sim.academy_id()<0: command("academy")
 				elif not sim.s.tech.has("seed") and sim.s.science<2: select(sim.academy_id(),true)
@@ -314,8 +397,10 @@ func command(cmd: String,arg=null):
 	if playing and sim.s.pending!="" and dialog_key!="crisis":
 		write_save("campaign")
 		open_crisis()
-	if result!="": hud.notify(result)
-	if playing: refresh(true)
+	if result!="": hud.notify(result,true)
+	if playing:
+		Model.Lesson.update(sim)
+		refresh(true)
 	if cmd not in ["sound","quit","decision"]: audio.effect("click")
 
 func refresh(force: bool=false):
@@ -369,6 +454,10 @@ func _unhandled_input(event: InputEvent):
 		elif playing and dialog_key=="":
 			match event.keycode:
 				KEY_SPACE: command("pause")
+				KEY_G: command("street_start",-1)
+				KEY_T: command("panel","study")
+				KEY_B: command("panel","build")
+				KEY_J: command("lesson_open")
 				KEY_1: command("speed",1)
 				KEY_2: command("speed",2)
 				KEY_3: command("speed",4)
@@ -392,7 +481,8 @@ func _unhandled_input(event: InputEvent):
 			MOUSE_BUTTON_LEFT:
 				var id=world.pick(event.position)
 				if id<0: return
-				if world.build_tool!="": place(id,posmod(Valley.intake(id)+world.edge_shift,6))
+				if world.build_tool=="street": road_click(id)
+				elif world.build_tool!="": place(id,posmod(Valley.intake(id)+world.edge_shift,6))
 				else: select(id)
 
 func _notification(what: int):

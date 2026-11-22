@@ -26,6 +26,9 @@ func clock_ticks(m,n: int):
 func campaign(region: int=0):
 	var m=Model.new()
 	m.reset(1,region)
+	m.s.cells[38].kind="academy"
+	for id in [m.s.frontier.home,39]: F.Roads.inherit_path(m.s,38,id)
+	F.Roads.rebuild(m.s)
 	m.s.food=45
 	m.s.ledger.opening=45
 	m.s.wood=45
@@ -130,7 +133,7 @@ func travel_and_storage():
 		act(m,"road",[0,z])
 		var route=F.route(s,0,z)
 		expect(route.road and route.time<F.travel_time(route.path,false),"road changes actual delivery time")
-	expect(F.route(s,1,2).stops==[0],"two roads form a usable inter-colony trade route")
+	expect(F.route(s,1,2).road and F.Roads.path(s,F.anchor(s,1),F.anchor(s,2),true).size()>2,"two roads form a usable inter-colony trade route")
 	var wood=s.wood
 	act(m,"ship",[0,1,"wood",8])
 	expect(s.wood==wood-8 and f.posts[1].wood==0,"consignment reserved on departure")
@@ -150,12 +153,14 @@ func travel_and_storage():
 	expect(f.posts[2].short==1 and f.posts[2].stone==0,"isolated quarry stops production without rations")
 	f.posts[2].food=1
 	F.season(m)
-	expect(f.posts[2].food==0 and f.posts[2].stone==3,"delivered food supports quarry workers")
+	expect(f.posts[2].food==0 and f.posts[2].stone==2,"delivered food supports quarry workers")
 	F.E.open_district(s,3)
-	f.roads.clear()
+	s.streets.clear()
+	F.Roads.inherit_path(s,38,s.frontier.home)
+	F.Roads.rebuild(s)
 	for road in [[0,3],[3,1],[1,2]]: act(m,"road",road)
 	var through=F.route(s,0,2)
-	expect(through.road and through.stops==[3,1],"a cart can traverse the entire four-settlement road network")
+	expect(through.road and s.cells[F.anchor(s,3)].connected and s.cells[F.anchor(s,1)].connected and s.cells[F.anchor(s,2)].connected,"a cart can traverse the entire four-settlement road network")
 
 func local_production():
 	var m=campaign()
@@ -176,12 +181,15 @@ func local_production():
 	s.cells[site].kind="farm"
 	post.seed=2
 	s.frontier.lines["豆"]=C.line()
+	C.profiles(s)
+	for id in [site,73]: F.Roads.inherit_path(s,38,id)
+	F.Roads.rebuild(s)
 	s.cells[site].next_species="稻"
 	act(m,"sow",[site,"豆"])
 	m.assign("t"+str(site),1)
 	m.assign("t73",1)
 	for k in 40: m.work()
-	expect(post.seed==0 and s.cells[site].crop and C.field_species(s,site)=="豆","empty field sows chosen crop using local seed")
+	expect(post.seed==1 and s.cells[site].crop and C.field_species(s,site)=="豆","empty field sows chosen crop using local seed")
 	expect(post.wood>4 and s.wood==wood,"remote timber enters the outpost warehouse")
 	m.harvest()
 	expect(post.food>4 and post.seed==2 and s.food==cash,"harvest and seed return to the local warehouse")

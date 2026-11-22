@@ -85,13 +85,15 @@ static func network(g,s):
 			g.quad(edge+Vector3.BACK*0.35,edge+Vector3.FORWARD*0.35,peak+Vector3.FORWARD*0.35,peak+Vector3.BACK*0.35,Color("#765c46"))
 		g.beam(p+Vector3(0.5,0,0),p+Vector3(0.5,1.05,0),0.024,0.016,Color("#66513e"))
 		g.tri(p+Vector3(0.5,1.04,0),p+Vector3(0.84,0.99,0),p+Vector3(0.5,0.79,0),Color("#bc805c"),Vector3.BACK)
-	for pair in s.frontier.roads.values():
-		var path=F.route_points(s,pair[0],pair[1])
+	for pair in s.streets.values():
+		var path=F.Roads.points(pair)
 		for i in path.size()-1:
 			var a=Vector2(path[i]);var b=Vector2(path[i+1])
 			var count=maxi(1,ceili(a.distance_to(b)*3))
 			if absf(a.y-b.y)<0.001 and absf(a.x-V.river(a.y))<V.breadth(a.y)+1.67: continue
-			var side=(b-a).normalized().orthogonal()*0.12
+			var side=(b-a).normalized().orthogonal()*0.18
 			for j in count:
 				var x=a.lerp(b,float(j)/count);var y=a.lerp(b,float(j+1)/count)
-				g.quad(V.v3(x-side,0.06),V.v3(x+side,0.06),V.v3(y+side,0.06),V.v3(y-side,0.06),Color("#a58c63"))
+				g.quad(V.v3(x-side,0.06),V.v3(x+side,0.06),V.v3(y+side,0.06),V.v3(y-side,0.06),Color("#b49a70") if s.cells[pair[0]].connected else Color("#90795d"))
+				var rim=side*0.18
+				g.quad(V.v3(x-rim,0.072),V.v3(x+rim,0.072),V.v3(y+rim,0.072),V.v3(y-rim,0.072),Color("#9d8761"))

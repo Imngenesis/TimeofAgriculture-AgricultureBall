@@ -3,11 +3,11 @@ extends RefCounted
 const Ink=preload("res://ink.gd")
 const BG=Color("#202b26")
 const DEEP=Color("#19231f")
-const PANEL=Color(0.065,0.125,0.125,0.97)
-const LINE=Color("#516763")
+const PANEL=Color(0.051,0.113,0.105,0.985)
+const LINE=Color("#627b70")
 const GOLD=Color("#ebc78a")
 const TEXT=Color("#f0e9d6")
-const DIM=Color("#bbc0a8")
+const DIM=Color("#c1cabc")
 const GREEN=Color("#a7c89a")
 const WARN=Color("#f1a477")
 
@@ -33,7 +33,7 @@ static func theme() -> Theme:
 	t.set_color("font_color","Button",TEXT)
 	t.set_color("font_hover_color","Button",Color.WHITE)
 	t.set_color("font_disabled_color","Button",Color("#949681"))
-	for pair in [["normal",style(Color("#303c31"),Color("#696b53"),1,2)],["hover",style(Color("#465244"),GOLD,1,2)],["pressed",style(Color("#505643"),GOLD,1,2)],["disabled",style(Color("#293329"),Color("#505646"),1,2)],["focus",StyleBoxEmpty.new()]]:
+	for pair in [["normal",style(Color("#303c31"),Color("#696b53"),1,2)],["hover",style(Color("#465244"),GOLD,1,2)],["pressed",style(Color("#505643"),GOLD,1,2)],["disabled",style(Color("#293329"),Color("#505646"),1,2)],["focus",style(Color.TRANSPARENT,Color("#f3d59d"),2,3)]]:
 		var st=pair[1]
 		if st is StyleBoxFlat:
 			st.content_margin_left=9; st.content_margin_right=9; st.content_margin_top=4; st.content_margin_bottom=4

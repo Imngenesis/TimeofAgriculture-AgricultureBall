@@ -17,6 +17,11 @@ func expect(value: bool, message: String) -> bool:
 		failures+=1
 	return value
 
+func serviced(m,sites: Array):
+	m.s.cells[38].kind="academy"
+	for id in sites: m.Roads.inherit_path(m.s,38,id)
+	m.Roads.rebuild(m.s)
+
 func population():
 	var m=Model.new()
 	for season in 3:
@@ -24,6 +29,7 @@ func population():
 		m.finish_season()
 	expect(m.s.pop==10 and m.recruit()!="","recruitment checks bed limit")
 	m.s.cells[46].kind="house"
+	serviced(m,[46])
 	m.s.happiness=35
 	for season in 2:
 		m.s.food=30
@@ -75,6 +81,8 @@ func construction():
 	expect(m.s.last_ledger.build==4 and m.s.ledger.refund==refund,"refund balances across a season boundary")
 	expect(m.cancel_project("t46")!="" and m.s.food==before+refund and m.free_workers()==10,"refund cannot be claimed twice")
 	m.s.cells[40].kind="canal"
+	serviced(m,[40])
+	m.assign("t38",1)
 	expect(not Town.covered(m.s,39,"canal") and m.vacancies().has("t40"),"unattended canal raises a staffing alert and supplies no water")
 	expect(m.fill_vacancies()==1 and not m.vacancies().has("t40"),"automatic assignment uses one idle worker")
 	for tick in 10: m.work()
@@ -94,7 +102,7 @@ func advancement():
 	m.s.food=12
 	m.s.tech=["seed","dry"]
 	m.s.cells[39].kind="farm"
-	m.s.cells[38].kind="academy"
+	serviced(m,[34,39])
 	expect(m.advance(0)!="" and m.s.food==12,"required warehouse blocks the transition")
 	m.s.cells[34].kind="store"
 	m.s.tech.erase("dry")
@@ -115,6 +123,7 @@ func modern_fields():
 	var other_field=m.s.cells[37]
 	local_field.kind="farm"
 	other_field.kind="farm"
+	serviced(m,[39,37])
 	other_field.crop=true
 	m.s.sick=true
 	m.s.cause.blight={"tile":39,"why":"test"}
@@ -138,12 +147,12 @@ func legacy(path: String, output: String):
 	source.folder=path.get_base_dir()+"/"
 	var sha=FileAccess.get_sha256(path)
 	var old=source.read(path.get_file().get_basename())
-	if not expect(old.get("version",0) in [1,2,3],"read an earlier release save"): return
+	if not expect(old.get("version",0) in [1,2,3,4],"read an earlier release save"): return
 	var m=Model.new()
 	m.restore(old.duplicate(true))
 	for key in ["turn","era","clock","food","seed","tech","study","study_time","science","workers","pending","policy"]:
 		expect(m.s[key]==old[key],"old save preserves "+key)
-	expect(m.s.version==4 and m.s.difficulty==1 and m.s.cells.size()==180 and m.s.cells[0].has("condition"),"legacy campaign expands into the standard economy")
+	expect(m.s.version==5 and m.s.difficulty==old.get("difficulty",1) and m.s.cells.size()==180 and m.s.cells[0].has("condition"),"legacy campaign expands into the standard economy")
 	for i in old.cells.size():
 		if old.cells[i].kind!="" or old.cells[i].project!="":
 			expect(old.cells[i].kind==m.s.cells[i].kind and old.cells[i].project==m.s.cells[i].project,"existing sites retain IDs")
@@ -174,11 +183,14 @@ func budget_and_land():
 		food.append(m.s.food)
 		m.s.cells[39].kind="farm"
 		m.s.era=3
+		serviced(m,[39])
+		m.s.frontier.plots[39]="稻"
 		fees.append(E.budget(m.s).total)
 		yields.append(m.expected_yield(39))
 	expect(food[0]>food[1] and food[1]>food[2] and fees[0]<fees[1] and fees[1]<fees[2] and yields[0]>yields[1] and yields[1]>yields[2],"difficulty affects starting supplies, recurring costs and actual crop yields")
 	m.reset()
 	m.s.cells[39].kind="farm"
+	serviced(m,[39])
 	var previous_yield=0
 	var previous_fee=-1
 	for era in 4:
