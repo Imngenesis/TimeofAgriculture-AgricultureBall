@@ -80,7 +80,10 @@ static func budget(s: Dictionary, era: int = -1, policy: int = -1) -> Dictionary
  var profile = DIFFICULTIES[s.difficulty]
 
  var funded = ceili((services + administration) * FUND_COST[s.budget if policy < 0 else policy] / 100.0)
- return {"era": administration, "services": services, "land": land, "total": ceili((funded + land) * profile.cost_pct / 100.0)}
+ var saving = 1 if "cooperative" in s.tech and Town.store_levels(s, 0) > 0 else 0
+ if "machine_pool" in s.tech and not Town.facilities(s, "station").is_empty(): saving += 2
+ var gross = ceili((funded + land) * profile.cost_pct / 100.0)
+ return {"era": administration, "services": services, "land": land, "saving": mini(saving, gross), "total": maxi(0, gross - saving)}
 
 static func settle(s: Dictionary):
  var due = budget(s).total
@@ -95,27 +98,38 @@ static func settle(s: Dictionary):
 static func flows(b: Dictionary) -> Array:
  return[b.gather + b.crop + b.refund + b.exports + b.get("freight_in", 0) + b.get("livestock", 0), b.get("freight_out", 0) + b.get("husbandry", 0) + b.get("explore", 0) + b.get("research", 0) + b.eat + b.build + b.maintenance + b.sow + b.advance + b.loss + b.spoil + b.operations + b.imports + b.recruit + b.land]
 
+static func trade_price(s: Dictionary, buy: bool) -> int:
+ if buy: return 4 if "market_trade" in s.tech else 5
+ return 3 if s.research_record.focus == "经济" else 2
+
 static func trade_reason(s: Dictionary, kind: String, buy: bool) -> String:
+ if kind == "feed" and not buy:
+  if "cash_crops" not in s.tech: return "先研习农产集售"
+  if s.frontier.feed < 4: return "营地饲料不足 4 份"
+  return ""
  if not LOT.has(kind): return "未知货物"
  var amount = LOT[kind]
  if buy:
   if s[kind] + amount + inbound(s, 0, kind) > Town.material_space(s, 0, kind): return "营地料仓放不下整批货物"
-  if s.food < 5: return "换货需要 5 份口粮"
+  if s.food < trade_price(s, true): return "换货需要 %d 份口粮" % trade_price(s, true)
  elif s[kind] < amount: return "库存不足一批"
  return ""
 
 static func trade(s: Dictionary, kind: String, buy: bool) -> String:
  var why = trade_reason(s, kind, buy)
  if why != "": return why
+ if kind == "feed":
+  s.frontier.feed -= 4
+  book_stock(s, 0, "food", 2, "exports")
+  return ""
  var amount = LOT[kind]
+ var price = trade_price(s, buy)
  if buy:
-  s.food -= 5
-  s.ledger.imports += 5
+  book_stock(s, 0, "food", -price, "imports")
   supply(s, kind, amount)
  else:
   supply(s, kind, - amount)
-  s.food += 2
-  s.ledger.exports += 2
+  book_stock(s, 0, "food", price, "exports")
  return ""
 
 static func claim(s: Dictionary, sector: int) -> String:

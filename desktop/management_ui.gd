@@ -92,6 +92,7 @@ static func budget(h, v):
  var m = h.sim
  var s = m.s
  var costs = E.budget(s)
+ if costs.saving > 0: v.add_child(U.label("合作经营本季节省 %d 粮，已计入预算。" % costs.saving, 14, U.GREEN))
  var crop = 0
  if s.turn % 4 == 2:
   crop = m.forecast_harvest(0).food
@@ -117,12 +118,17 @@ static func market(h, v):
   var amount = E.LOT[k]
   var name = "木" if k == "wood" else "石"
   var trades = U.box(false, 6); v.add_child(trades)
-  var buy = h.btn("5 粮换 %d %s" % [amount, name], "trade", [k, true])
-  var sell = h.btn("%d %s换 2 粮" % [amount, name], "trade", [k, false])
+  var buy = h.btn("%d 粮换 %d %s" % [E.trade_price(s, true), amount, name], "trade", [k, true])
+  var sell = h.btn("%d %s换 %d 粮" % [amount, name, E.trade_price(s, false)], "trade", [k, false])
   buy.tooltip_text = E.trade_reason(s, k, true); buy.disabled = buy.tooltip_text != ""
   sell.tooltip_text = E.trade_reason(s, k, false); sell.disabled = sell.tooltip_text != ""
   for b in[buy, sell]: b.size_flags_horizontal = Control.SIZE_EXPAND_FILL; trades.add_child(b)
  v.add_child(U.rule())
+ if "cash_crops" in s.tech:
+  var sell_feed = h.btn("集售 4 饲料 · 换 2 粮（现有 %d 饲料）" % s.frontier.feed, "trade", ["feed", false])
+  sell_feed.tooltip_text = E.trade_reason(s, "feed", false)
+  sell_feed.disabled = sell_feed.tooltip_text != ""
+  v.add_child(sell_feed)
  v.add_child(U.label("料场生产", 17, U.GOLD))
  for id in E.DEPOSITS:
   var kind = s.cells[id].kind

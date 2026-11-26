@@ -117,9 +117,9 @@ static func crops(h, v):
  if f.trials.has(crop):
   countdown(h, v, "试验田剩余 %d 秒", f.trials[crop].due, U.GOLD)
  else:
-  v.add_child(U.label("投入同系种源 2 份、工粮 2 份，试种 40 秒。丰穗亲本提高产量，耐逆亲本缓解低地力、病情及缺水减产。", 14, U.DIM, true))
+  v.add_child(U.label("投入同系种源 2 份、工粮 2 份，试种 %d 秒。丰穗亲本提高产量，耐逆亲本缓解低地力、病情及缺水减产。" % C.trial_time(s, crop), 14, U.DIM, true))
  v.add_child(U.label("在农田面板可指定下茬。采集地每采 4 粮留一份种源，栽培收获也能留种。", 14, U.TEXT, true))
- var odds = C.MUTATION[s.difficulty]
+ var odds = C.mutation_odds(s)
  v.add_child(U.label("本年景每种作物每季首次收获　有利变异 %d%%　不利变异 %d%%" % odds, 13, U.GOLD, true))
  if h.sim.Study.discovered(s, crop): choice(h, v, "查看" + C.title(crop) + "农学分支", "open_crop_study", crop)
  var stockrow = U.box(false, 6); v.add_child(stockrow)
@@ -168,7 +168,7 @@ static func yard_actions(h, v, id: int):
  var why = F.Farm.Yards.status(s, id)
  v.add_child(U.label(why if why != "" else "牧工已到岗", 15, U.WARN if why != "" else U.GREEN))
  v.add_child(U.label("栏位 %d / %d　当地饲料 %d　厩肥 %d" % [y.hens + y.goats + y.broods.size(), F.Farm.Yards.capacity(s, id), feed, y.manure], 14, U.TEXT, true))
- v.add_child(U.label("粮仓距此两格内可多存 4 蛋。两格内的同区农田可用厩肥恢复 10 地力。", 13, U.DIM, true))
+ v.add_child(U.label("粮仓距此两格内可多存 4 蛋。两格内的同区农田可用厩肥恢复 %d 地力。" % (14 if "manure_cycle" in s.tech else 10), 13, U.DIM, true))
  if F.Farm.Yards.store_near(s, id): v.add_child(U.label("已获附近粮仓的蛋品仓位", 13, U.GREEN))
  action(h, v, "制备 4 饲料 · 2 粮", "feed", [id])
  for species in["hens", "goats"]:
@@ -197,7 +197,7 @@ static func freight(h, v):
   for z in s.districts:
    choice(h, row, V.SECTORS[z], "freight_place", [is_origin, z], z == (a if is_origin else b))
  var lane = F.route(s, a, b)
- var count = 8 if lane.road else 4
+ var count = lane.capacity
  var name = "直达道路" if lane.road else "山间小径"
  if not lane.stops.is_empty():
   var places = PackedStringArray()
@@ -242,4 +242,4 @@ static func inventory(h, v):
   var bar = ProgressBar.new(); bar.show_percentage = false; bar.max_value = w.capacity; bar.value = f.fresh
   bar.custom_minimum_size.y = 10; v.add_child(bar)
   v.add_child(U.label("本季集雨 +%d　居民与田块需 %d　预计结余 %d　缺口 %d" % [w.rain, w.need, w.balance, w.short], 14, U.WARN if w.short > 0 else U.TEXT, true))
-  action(h, v, "建集雨池 · 3 木 2 石，每季多蓄 6 水", "well")
+  action(h, v, "建集雨池 · 3 木 2 石，每季多蓄 %d 水" % (9 if "coastal_cistern" in s.tech else 6), "well")

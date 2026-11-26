@@ -22,11 +22,11 @@ if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $pack)) { throw "Windows ex
 
 $notices = Join-Path $windows "licenses"
 New-Item -ItemType Directory -Force -Path $notices | Out-Null
-foreach ($name in "Godot-LICENSE.txt", "Godot-COPYRIGHT.txt") {
+foreach ($name in "Godot-LICENSE.txt", "Godot-COPYRIGHT.txt", "NotoSansSC-OFL.txt", "ICU-LICENSE.txt") {
     Copy-Item -LiteralPath (Join-Path (Join-Path $root "licenses") $name) -Destination $notices -Force
 }
 $quickStart = Join-Path $windows "试玩说明.txt"
 Copy-Item -LiteralPath (Join-Path $root "试玩说明.txt") -Destination $quickStart -Force
-$archive = Join-Path $dist "RiceByTheRiver-Windows-x64.zip"
+$archive = Join-Path $dist "BaiguChangqing-v1.15-Windows-x64.zip"
 Compress-Archive -LiteralPath @($output, $pack, $quickStart, $notices) -DestinationPath $archive -CompressionLevel Optimal -Force
 Get-Item -LiteralPath $archive | Select-Object FullName, Length

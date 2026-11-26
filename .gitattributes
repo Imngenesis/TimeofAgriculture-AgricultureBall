@@ -8,3 +8,5 @@
 *.zip binary
 *.png binary
 *.ico binary
+*.cmd text eol=crlf
+/dist export-ignore

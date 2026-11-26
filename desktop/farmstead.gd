@@ -7,10 +7,12 @@ const Weather = preload("res://weather.gd")
 
 static func spring_water(s: Dictionary) -> Dictionary:
  var f = s.frontier
- var intake = RAIN[s.turn % 4] + 6 * f.wells + Weather.water_delta(s)
+ var intake = RAIN[s.turn % 4] + (9 if "coastal_cistern" in s.tech else 6) * f.wells + Weather.water_delta(s)
  var need = ceili(s.pop * 0.75)
+ var plots = 0
  for c in s.cells:
-  if c.kind == "farm": need += 1
+  if c.kind == "farm": plots += 1
+ need += ceili(plots / 2.0) if "precision_irrigation" in s.tech else plots
  var capacity = 40 + 8 * f.wells
  var available = mini(capacity, f.fresh + intake)
  return {"rain": intake, "need": need, "capacity": capacity, "balance": maxi(0, available - need), "short": maxi(0, need - available)}

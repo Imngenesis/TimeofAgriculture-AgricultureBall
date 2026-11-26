@@ -32,6 +32,15 @@ static func draw(s: Dictionary, turn: int) -> String:
  var choices = POOLS[s.frontier.region] [turn % 4]
  return choices[w.rng % choices.size()]
 
+# Look ahead using a private RNG cursor. Opening the forecast must never reroll the season.
+static func outlook(s: Dictionary) -> Array:
+ var result = [s.weather.next]
+ var horizon = 3 if "weather_station" in s.tech else (2 if "phenology" in s.tech else 1)
+ var cursor = {"frontier":s.frontier, "weather":{"rng":s.weather.rng}}
+ for offset in range(2, horizon + 1):
+  result.append(draw(cursor, s.turn + offset))
+ return result
+
 static func setup(s: Dictionary):
  s.weather = {"rng": maxi(1, int(s.frontier.rng) % 2147483647), "now": "晴", "next": "", "threat": "", "prepared": false, "last_hit": -4, "history": []}
  if s.turn > 0: s.weather.now = draw(s, s.turn)
@@ -54,14 +63,17 @@ static func water_delta(s: Dictionary) -> int:
 static func yield_delta(s: Dictionary, id: int, crop: String) -> int:
  match s.weather.now:
   "晴": return 1
-  "暑热": return 0 if Town.covered(s, id, "canal") else -2
+  "暑热": return (2 if "precision_irrigation" in s.tech else 0) if Town.covered(s, id, "canal") else -2
   "冷霜": return 0 if crop in["麦", "薯"] else -2
  return 0
+
+static func defense_wood(s: Dictionary) -> int:
+ return 0 if "met_network" in s.tech else 1
 
 static func prepare_reason(s: Dictionary) -> String:
  if s.weather.threat == "": return "本季无需动员"
  if s.weather.prepared: return "本季已经部署"
- if s.food < 2 or s.wood < 1: return "需要 2 口粮、1 木料"
+ if s.food < 2 or s.wood < defense_wood(s): return "需要 2 口粮" + ("、1 木料" if defense_wood(s) else "")
  return ""
 
 static func prepare(m) -> String:
@@ -69,7 +81,7 @@ static func prepare(m) -> String:
  var why = prepare_reason(s)
  if why != "": return why
  E.book_stock(s, 0, "food", -2, "maintenance")
- E.supply(s, "wood", -1)
+ E.supply(s, "wood", -defense_wood(s))
  s.weather.prepared = true
  s.rev += 1
  m.note(DEFENSE[s.weather.threat] + "已部署。")
@@ -82,6 +94,11 @@ static func settle(m):
   for plot in m.farms(): s.cells[plot].soil = mini(96, s.cells[plot].soil + 1)
  if w.threat == "": return
  var strength = (2 + s.difficulty) if w.prepared else(6 + 2 * s.difficulty)
+ if w.prepared:
+  if s.research_record.focus == "防灾": strength -= 2
+  if "water_management" in s.tech and w.threat in ["旱灾", "暴雨冲刷"]: strength -= 2
+  strength = maxi(0, strength)
+ if w.threat not in s.research_record.hazards: s.research_record.hazards.append(w.threat)
  var affected = 0
  for id in s.cells.size():
   var c = s.cells[id]
@@ -91,7 +108,7 @@ static func settle(m):
     c.soil = maxi(10, c.soil - strength)
    "暴雨冲刷":
     if c.kind != "farm" or V.tier(id) < 1 or c.terrace or c.rotation: continue
-    c.soil = maxi(10, c.soil - strength)
+    c.soil = maxi(10, c.soil - maxi(0, strength - (3 if "slope_cover" in s.tech else 0)))
    "风灾":
     if c.kind not in["pasture", "store", "house"]: continue
     c.condition = maxi(0, c.condition - strength)

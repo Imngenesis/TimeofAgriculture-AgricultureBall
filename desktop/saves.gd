@@ -4,6 +4,12 @@ const V = preload("res://valley.gd")
 
 var folder = "user://"
 var checkpoint = {}
+var previous_folder = ""
+
+func use_version_folder(previous: String = "user://"):
+ previous_folder = previous
+ folder = previous.path_join("v1.15") + "/"
+ DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
 
 func put(slot: String, state: Dictionary) -> bool:
  var path = folder + slot + ".bin"
@@ -25,24 +31,33 @@ func put(slot: String, state: Dictionary) -> bool:
 
 func read(slot: String) -> Dictionary:
  if slot == "chapter" and not checkpoint.is_empty(): return checkpoint.duplicate(true)
- for suffix in["", ".bak"]:
-  var path = folder + slot + ".bin" + suffix
-  if not FileAccess.file_exists(path): continue
-  var f = FileAccess.open(path, FileAccess.READ)
-  if not f: continue
-  var value = f.get_var(false)
-  f.close()
-  if value is Dictionary and value.get("format", 0) == 1:
-   var state = value.get("state", {})
-   if valid(state):
-    if slot == "campaign":
-     checkpoint = value.get("chapter", {})
-     if not valid(checkpoint): checkpoint = {}
-    return state
+ var locations = [folder]
+ # Continue an older campaign in a separate directory. A later V1.10 launch can still read its original save.
+ if previous_folder != "" and slot in ["campaign", "chapter"] and not FileAccess.file_exists(folder + slot + ".bin") and not FileAccess.file_exists(folder + slot + ".bin.bak"):
+  locations.append(previous_folder)
+ for location in locations:
+  for suffix in["", ".bak"]:
+   var path = location + slot + ".bin" + suffix
+   if not FileAccess.file_exists(path): continue
+   var f = FileAccess.open(path, FileAccess.READ)
+   if not f: continue
+   var value = f.get_var(false)
+   f.close()
+   if value is Dictionary and value.get("format", 0) == 1:
+    var state = value.get("state", {})
+    if valid(state):
+     if slot == "campaign":
+      checkpoint = value.get("chapter", {})
+      if not valid(checkpoint): checkpoint = {}
+     return state
  return {}
 
 func valid(state: Variant) -> bool:
- if not state is Dictionary or not state.get("version", 0) in[1, 2, 3, 4, 5, 6]: return false
+ if not state is Dictionary or not state.get("version", 0) in[1, 2, 3, 4, 5, 6, 7]: return false
+ if state.version == 7:
+  var record = state.get("research_record")
+  if not record is Dictionary or not record.get("focus") in [""] + preload("res://curriculum.gd").TRACKS: return false
+  if not record.get("observations") is int or not record.get("terms") is int or not record.get("hazards") is Array: return false
  var count = V.COLS * V.ROWS if state.version >= 3 else V.CORE_CELLS
  if state.version >= 6 and(not state.get("guide") is Dictionary or not state.get("weather") is Dictionary or not state.get("frontier", {}).get("yards") is Dictionary): return false
  if state.version >= 5 and not state.get("streets") is Dictionary: return false

@@ -16,6 +16,9 @@ var archive_era = 0
 var reading_key = ""
 var tech_branch = "稻"
 var tech_key = "seed"
+var tech_era = 0
+var proposed_focus = ""
+var map_overview = false
 var frontier_tab = "种圃"
 var atlas_crop = "稻"
 var freight_from = 0
@@ -109,7 +112,7 @@ func menu(has_save: bool):
  var settings = btn("游戏设置", "settings"); settings.custom_minimum_size = Vector2(209, 38); controls.add_child(settings)
  if not OS.has_feature("web"):
   var leave = btn("退出游戏", "quit"); leave.custom_minimum_size = Vector2(209, 38); controls.add_child(leave)
- var signature = U.label("百谷长青  ·  V1.10", 13, U.DIM)
+ var signature = U.label("百谷长青  ·  V1.15", 13, U.DIM)
  stage.add_child(signature); U.rect(signature, 0, 1, 0, 1, Rect2i(80, -53, 412, -30))
  var river = U.box(false, 7)
  stage.add_child(river); U.rect(river, 1, 1, 1, 1, Rect2i(-190, -56, -30, -28))
@@ -118,7 +121,7 @@ func menu(has_save: bool):
 func game_view():
  mode = "game"
  atlas_crop = S.F.START[sim.s.frontier.region]
- tech_branch = atlas_crop; tech_key = "seed"
+ tech_branch = atlas_crop; tech_key = "seed"; tech_era = sim.s.era; proposed_focus = ""
  frontier_tab = "种圃"
  build_category = "全部"; archive_era = sim.s.era
  freight_from = 0
@@ -339,7 +342,7 @@ func rebuild_details(force: bool = false):
  var tag = "%s:%d:%s:%s:%s:%s:%s:%s:%s:%s:%s" % [panel_key, id, game.edge_job, s.rev, s.turn, s.tech, s.study, s.science, s.food >= 4, game.world.risk, sim.free_workers()]
  var ac = sim.academy_id()
  if ac >= 0: tag += ":%d" % s.cells[ac].notes
- if panel_key == "study": tag += ":%s:%s:%d" % [tech_branch, tech_key, s.study_time]
+ if panel_key == "study": tag += ":%s:%s:%d:%s:%d:%d" % [tech_branch, tech_key, tech_era, s.research_record.focus, s.study_time, s.research_record.observations]
  if panel_key in["era", "crew", "build", "economy", "transfer", "frontier", "study"] or id >= 0: tag += ":%d:%d:%d:%d" % [s.food, s.seed, s.wood, s.stone]
  if panel_key in["crew", "transfer"] or id >= 0:
   var walking = 0
@@ -402,7 +405,7 @@ func inspection(id: int) -> String:
  if E.DEPOTS.has(c.kind): return "到岗 %d 人，已派 %d 人\n每 %d 人秒入库 1 份%s。" % [sim.assigned(job, true), sim.assigned(job), E.extraction_time(c.kind, id), "木料" if c.kind == "wood" else "石料"]
  var condition = "%d 级　·　完好度 %d / 100\n" % [c.level, c.condition]
  if c.kind == "academy":
-  var activity = "研习「%s」还需 %d 人秒" % [sim.tech_name(s.study), s.study_time] if s.study != "" else "下一点科技　%d / %d 人秒" % [c.lesson, T.LESSON]
+  var activity = "「%s」%s" % [sim.tech_name(s.study), sim.study_status()] if s.study != "" else "下一点科技　%d / %d 人秒" % [c.lesson, T.lesson_time(s)]
   if s.study == "" and s.science + c.notes >= S.Study.limit(s, c.level): activity = "案藏已满 · 投入研究或扩建农专可继续编点"
   return condition + "到岗 %d 人　·　待领 %d 点\n%s" % [sim.assigned(job, true), c.notes, activity]
  if c.kind == "farm":
@@ -486,7 +489,7 @@ func make_inspector(id: int):
   if shortfall > 0: v.add_child(btn("封存本田缺少的 %d 份种粮" % shortfall, "field_seed", id, true))
   for variant in s.frontier.varieties.get(next[0], {}):
    if variant != next[1]: v.add_child(btn("改种" + S.F.Crops.cultivar_title(next[0], variant), "frontier_action", ["sow", [id, next[0], variant]]))
-  if S.F.Farm.Yards.manure_source(s, id) >= 0: Atlas.action(self, v, "施 1 厩肥 · 地力 +10", "manure", id)
+  if S.F.Farm.Yards.manure_source(s, id) >= 0: Atlas.action(self, v, "施 1 厩肥 · 地力 +%d" % (14 if "manure_cycle" in s.tech else 10), "manure", id)
  if s.frontier.yards.has(id): Atlas.yard_actions(self, v, id)
  if c.kind == "academy" and c.project == "":
   var course = "university" if c.get("campus", "") == "agronomy" else "agcollege"
@@ -527,13 +530,13 @@ func make_inspector(id: int):
    b.disabled = why != ""; b.tooltip_text = why; v.add_child(b)
 
 func detail_tab() -> String:
- if panel_key == "study": return tech_branch
+ if panel_key == "study": return tech_branch + str(tech_era) + tech_key
  if panel_key == "frontier": return frontier_tab
  if panel_key == "economy": return economy_tab
  return ""
 
 func make_drawer():
- var w = 840 if panel_key == "study" else 728 if panel_key == "frontier" else(632 if panel_key in["crew", "economy", "transfer"] else 594)
+ var w = 936 if panel_key == "study" else 728 if panel_key == "frontier" else(632 if panel_key in["crew", "economy", "transfer"] else 594)
  drawer = U.panel(stage, 0.5, 0.5, 0.5, 0.5, Rect2i(- w / 2, -245, w / 2, 231), U.PANEL)
  drawer.set_meta("section", panel_key)
  drawer.set_meta("tab", detail_tab())
@@ -599,6 +602,12 @@ func dialog(kind: String):
  modal.color = Color(0.035, 0.065, 0.047, 0.55)
  stage.add_child(modal); modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
  modal.mouse_filter = Control.MOUSE_FILTER_STOP
+ if kind == "tech_map":
+  Research.MapView.show(self, modal)
+  return
+ if kind == "study_focus":
+  Research.focus_sheet(self, modal)
+  return
  if kind in["guide", "reading"]:
   var key = sim.s.guide.queue.front() if kind == "guide" else reading_key
   SeasonUI.folio(self, modal, key, kind == "guide")
@@ -608,6 +617,11 @@ func dialog(kind: String):
  var body = U.box(true, 9); U.inset(card, 22).add_child(body)
  var s = sim.s
  match kind:
+  "withdraw_study":
+   body.add_child(title_label("撤回田间验证", 26))
+   body.add_child(U.label("「%s」已消耗的札记、物资和观察记录不会返还。撤回后，农专可立即开始其他课题。" % sim.tech_name(s.study), 16, U.TEXT, true))
+   body.add_child(btn("继续验证", "back", null, true))
+   body.add_child(btn("确认撤回", "withdraw_confirm", s.study))
   "difficulty":
    Atlas.habitats(self, body)
   "crisis":
@@ -663,7 +677,8 @@ func dialog(kind: String):
    body.add_child(btn("开始新战役", "confirmed_new", null, true)); body.add_child(btn("继续保留当前进度", "back"))
 
 func find_button(command: String, arg = null) -> Button:
- for node in find_children("*", "Button", true, false):
+ var surface = modal if is_instance_valid(modal) else stage
+ for node in surface.find_children("*", "Button", true, false):
   var payload = node.get_meta("arg") if node.has_meta("arg") else null
   if node.is_visible_in_tree() and node.get_meta("command", "") == command and payload == arg and not node.disabled:
    return node

@@ -41,9 +41,25 @@ static func theme() -> Theme:
   t.set_stylebox(pair[0], "Button", st)
  return t
 
+# Keep numbers and their units in the same line of wrapped prose.
+static var quantity_span: RegEx = RegEx.create_from_string(
+ r"(?:(?:距今|公元前?)[ \t]*)?(?:大?约[ \t]*)?[0-9]+(?:\.[0-9]+)?[ \t]*(?:[万千亿][ \t]*)?(?:[至到–—～~-][ \t]*[0-9]+(?:\.[0-9]+)?[ \t]*(?:[万千亿][ \t]*)?)?(?:世纪[初末]?|年前后|年前|年|月|日|人秒|秒|分钟|小时|季|天|份|亩|公顷|公里|格|点|人|粮|种|木|石)"
+)
+
+static func wrap_text(value: String) -> String:
+ var quantities := quantity_span.search_all(value)
+ # Work right to left so each match keeps its original offsets.
+ for i in range(quantities.size() - 1, -1, -1):
+  var quantity := quantities[i]
+  var words := quantity.get_string().replace(" ", "\u00a0").replace("\t", "\u00a0")
+  var joined := "\u2060".join(words.split(""))
+  value = value.substr(0, quantity.get_start()) + joined + value.substr(quantity.get_end())
+ return value
+
 static func label(value: String, px: int = 16, color: Color = TEXT, wrap: bool = false) -> Label:
  var l = Label.new()
- l.text = value
+ l.text = wrap_text(value) if wrap else value
+ if wrap: l.language = "zh"
  l.add_theme_color_override("font_color", color)
  l.add_theme_font_size_override("font_size", px)
  l.add_theme_constant_override("line_spacing", 3)

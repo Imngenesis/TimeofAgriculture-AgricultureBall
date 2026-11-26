@@ -1,0 +1,518 @@
+{
+  "seed_selection": {
+    "name": "优选留种",
+    "era": 0,
+    "track": "育种",
+    "notes": 4,
+    "requires": [
+      "seed"
+    ],
+    "description": "每块田秋收时多留 1 份种粮，从该田收成中划拨；种仓已满时仍归口粮。"
+  },
+  "crop_diversity": {
+    "name": "种源多样性保护",
+    "era": 0,
+    "track": "育种",
+    "notes": 4,
+    "requires": [
+      "seed"
+    ],
+    "description": "同一圩区同时栽有两种作物或品种时，各在田作物的病害压力每季额外降低 4 点。"
+  },
+  "stone_tools": {
+    "name": "石器耕作",
+    "era": 0,
+    "track": "耕作",
+    "notes": 3,
+    "requires": [
+      "seed"
+    ],
+    "description": "开垦试验农田时，每名工人的施工进度加倍。"
+  },
+  "slash_burn": {
+    "name": "刀耕火种",
+    "era": 0,
+    "track": "耕作",
+    "notes": 3,
+    "requires": [
+      "seed"
+    ],
+    "description": "新田的第一茬基础收成增加 3 份，收后额外消耗 5 点地力。已经收获过的田块沿用原有农法。"
+  },
+  "phenology": {
+    "name": "物候观测",
+    "era": 0,
+    "track": "防灾",
+    "notes": 3,
+    "requires": [
+      "seed"
+    ],
+    "description": "通过农时记录多预看一季天气。在顶部的农时预报内可以看到后两季。"
+  },
+  "basic_protection": {
+    "name": "简易防护",
+    "era": 0,
+    "track": "防灾",
+    "notes": 3,
+    "requires": [
+      "dry"
+    ],
+    "description": "在田块与仓口架设简易防护。各田每季少 2 点鸟害压力，洪峰来时少暴露 2 份粮种。"
+  },
+  "crossbreeding": {
+    "name": "品种杂交",
+    "era": 1,
+    "track": "育种",
+    "notes": 7,
+    "requires": [
+      "seed_selection"
+    ],
+    "description": "已有栽培品系的作物进行杂交时，试种周期从 40 秒缩至 30 秒。"
+  },
+  "foreign_introduction": {
+    "name": "外来引种",
+    "era": 1,
+    "track": "育种",
+    "notes": 5,
+    "requires": [
+      "seed_selection",
+      "scout"
+    ],
+    "description": "探险队归来时两类种源各多带回 1 份。首次驯化一种新作物的试种周期缩短 8 秒。"
+  },
+  "deep_plowing": {
+    "name": "深耕整地",
+    "era": 1,
+    "track": "耕作",
+    "notes": 6,
+    "requires": [
+      "stone_tools",
+      "plough"
+    ],
+    "description": "使用犁具整地。地力达到 58 的田块基础秋收增加 2 份。"
+  },
+  "intensive_planting": {
+    "name": "密植技术",
+    "era": 1,
+    "track": "耕作",
+    "notes": 6,
+    "requires": [
+      "stone_tools",
+      "seed_selection"
+    ],
+    "description": "照料达到 36 的田块基础秋收增加 3 份；同样的密植田每季也会多积累 2 点病害压力。"
+  },
+  "large_field_management": {
+    "name": "大田管理",
+    "era": 1,
+    "track": "耕作",
+    "notes": 6,
+    "requires": [
+      "stone_tools",
+      "plough"
+    ],
+    "description": "分畦安排田务，只有一名农人到岗的在田作物每秒多获得 1 点照料。"
+  },
+  "pest_control": {
+    "name": "田间综合防护",
+    "era": 1,
+    "track": "防灾",
+    "notes": 6,
+    "requires": [
+      "basic_protection",
+      "scout"
+    ],
+    "description": "轮作田或已巡查的田块，每季额外削减 4 点草害与病害压力。"
+  },
+  "water_management": {
+    "name": "水旱管理",
+    "era": 1,
+    "track": "防灾",
+    "notes": 7,
+    "requires": [
+      "basic_protection",
+      "dike"
+    ],
+    "description": "在旱灾或暴雨冲刷前部署防护，本次损害强度再降低 2 点，最低为 0。"
+  },
+  "weather_station": {
+    "name": "农时观测站",
+    "era": 1,
+    "track": "防灾",
+    "notes": 7,
+    "requires": [
+      "phenology",
+      "scout"
+    ],
+    "description": "结合物候和田间巡查，在气象台预看后三季天气，并标出各季可能伴随的天灾类型。"
+  },
+  "market_trade": {
+    "name": "集市贸易",
+    "era": 1,
+    "track": "经济",
+    "notes": 4,
+    "requires": [
+      "dry"
+    ],
+    "description": "码头使用统一斗量，每批木料或石料的买入价从 5 粮降至 4 粮。"
+  },
+  "trade_routes": {
+    "name": "商路开辟",
+    "era": 1,
+    "track": "经济",
+    "notes": 5,
+    "requires": [
+      "market_trade"
+    ],
+    "description": "两地走农专路网运输时，每批货物多装 2 份。运人仍按一人一批。"
+  },
+  "cash_crops": {
+    "name": "农产集售",
+    "era": 1,
+    "track": "经济",
+    "notes": 6,
+    "requires": [
+      "market_trade"
+    ],
+    "description": "解锁收支面板中的饲料集售。营地每 4 份饲料可卖得 2 份口粮。"
+  },
+  "long_distance_trade": {
+    "name": "长途商运",
+    "era": 1,
+    "track": "经济",
+    "notes": 7,
+    "requires": [
+      "trade_routes",
+      "foreign_introduction"
+    ],
+    "description": "所有新发出的货运或迁居行程缩短四分之一，向上取整，至少 1 秒。在途批次按原行期抵达。"
+  },
+  "seed_vault": {
+    "name": "良种分仓",
+    "era": 2,
+    "track": "育种",
+    "notes": 7,
+    "requires": [
+      "seed_selection",
+      "dry"
+    ],
+    "description": "本地有正常工作的粮仓时，种仓增加 6 份独立仓位。"
+  },
+  "field_trials": {
+    "name": "田间对照试验",
+    "era": 2,
+    "track": "育种",
+    "notes": 8,
+    "requires": [
+      "crossbreeding",
+      "scout"
+    ],
+    "description": "一季秋收至少有两块营地农田入仓，且农专有人到岗，编成 1 点待领札记。受案藏上限约束。"
+  },
+  "soil_rotation": {
+    "name": "精耕细作",
+    "era": 2,
+    "track": "耕作",
+    "notes": 8,
+    "requires": [
+      "deep_plowing",
+      "rotate",
+      "dike"
+    ],
+    "description": "已经实行轮作并受到有效灌渠覆盖的田块，基础收成增加 3 份。"
+  },
+  "straw_return": {
+    "name": "秸秆还田",
+    "era": 2,
+    "track": "耕作",
+    "notes": 6,
+    "requires": [
+      "rotate",
+      "large_field_management"
+    ],
+    "description": "稻、粟、麦、玉米每收一茬，田块恢复 3 点地力。"
+  },
+  "slope_cover": {
+    "name": "等高草带",
+    "era": 2,
+    "track": "防灾",
+    "notes": 7,
+    "requires": [
+      "terrace",
+      "basic_protection"
+    ],
+    "description": "台地与高地的裸田遇梅雨少损失 6 点地力，遇暴雨冲刷少损失 3 点地力。"
+  },
+  "granary_vent": {
+    "name": "通风仓廒",
+    "era": 2,
+    "track": "经济",
+    "notes": 6,
+    "requires": [
+      "dry",
+      "market_trade"
+    ],
+    "description": "每级有效粮仓额外容纳 8 份口粮，可为在途来粮保留更多仓位。"
+  },
+  "apprentice": {
+    "name": "农学师徒",
+    "era": 2,
+    "track": "育种",
+    "notes": 7,
+    "requires": [
+      "field_trials"
+    ],
+    "description": "农专有人到岗且没有在研课题时，编成一份札记的工时由 18 人秒减为 15 人秒。札记仍需领取。"
+  },
+  "canal_gates": {
+    "name": "分水闸门",
+    "era": 2,
+    "track": "防灾",
+    "notes": 7,
+    "requires": [
+      "water_management",
+      "terrace"
+    ],
+    "description": "受灌渠覆盖的农田在季末恢复 1 点地力；旱灾或暑热天气改为恢复 3 点。"
+  },
+  "cooperative": {
+    "name": "合作粮社",
+    "era": 2,
+    "track": "经济",
+    "notes": 8,
+    "requires": [
+      "trade_routes",
+      "granary_vent"
+    ],
+    "description": "营地至少有一座有效粮仓时，全聚落每季公共预算少支出 1 份口粮。"
+  },
+  "manure_cycle": {
+    "name": "农牧还肥",
+    "era": 2,
+    "track": "耕作",
+    "notes": 7,
+    "requires": [
+      "rotate",
+      "large_field_management"
+    ],
+    "description": "用两格内正常牧场的厩肥养地时，每份恢复 14 点地力，原为 10 点。"
+  },
+  "polder_drain": {
+    "name": "圩田疏水",
+    "era": 2,
+    "track": "防灾",
+    "notes": 6,
+    "requires": [
+      "water_management"
+    ],
+    "description": "长江湿地的低田水稻受到灌渠覆盖时，基础收成增加 2 份。",
+    "region": 0
+  },
+  "sahel_mulch": {
+    "name": "雨养覆草",
+    "era": 2,
+    "track": "耕作",
+    "notes": 6,
+    "requires": [
+      "straw_return"
+    ],
+    "description": "在萨赫勒雨养地，粟田遇暑热或地力低于 58 时，基础收成增加 3 份。",
+    "region": 1
+  },
+  "danube_stubble": {
+    "name": "麦茬保土",
+    "era": 2,
+    "track": "耕作",
+    "notes": 6,
+    "requires": [
+      "rotate",
+      "deep_plowing"
+    ],
+    "description": "多瑙河麦区的每块麦田收获后多恢复 3 点地力。",
+    "region": 2
+  },
+  "andes_ridges": {
+    "name": "高地薯垄",
+    "era": 2,
+    "track": "耕作",
+    "notes": 6,
+    "requires": [
+      "terrace",
+      "stone_tools"
+    ],
+    "description": "安第斯的高地薯田基础收成增加 3 份。",
+    "region": 3
+  },
+  "coastal_cistern": {
+    "name": "河口分池蓄淡",
+    "era": 2,
+    "track": "防灾",
+    "notes": 6,
+    "requires": [
+      "water_management"
+    ],
+    "description": "滨海河口每座集雨池每季额外蓄入 3 份淡水。",
+    "region": 4
+  },
+  "milpa": {
+    "name": "玉米菜豆轮茬",
+    "era": 2,
+    "track": "育种",
+    "notes": 6,
+    "requires": [
+      "rotate",
+      "crop_diversity"
+    ],
+    "description": "墨西哥高原驯化菜豆后，实行轮作的玉米田基础收成增加 3 份。",
+    "region": 5
+  },
+  "tractor": {
+    "name": "拖拉机联耕",
+    "era": 3,
+    "track": "耕作",
+    "notes": 8,
+    "requires": [
+      "machine",
+      "large_field_management"
+    ],
+    "description": "有人到岗的农机站服务半径增加一格。"
+  },
+  "combine": {
+    "name": "联合收获",
+    "era": 3,
+    "track": "耕作",
+    "notes": 11,
+    "requires": [
+      "tractor",
+      "winnow"
+    ],
+    "description": "农机站覆盖的田块基础秋收再增加 3 份。",
+    "terms": 2
+  },
+  "precision_irrigation": {
+    "name": "精量灌溉",
+    "era": 3,
+    "track": "耕作",
+    "notes": 9,
+    "requires": [
+      "machine",
+      "water_management"
+    ],
+    "description": "暑热天气，通渠农田基础收成增加 2 份。在河口，每季全体农田用水减少一半，向上取整。"
+  },
+  "variable_rate": {
+    "name": "变量施肥",
+    "era": 3,
+    "track": "耕作",
+    "notes": 11,
+    "requires": [
+      "precise",
+      "deep_plowing"
+    ],
+    "description": "同田启用精准配肥与化肥时，基础收成增加 2 份，每季新增排放减少 2 点。",
+    "terms": 2
+  },
+  "slow_release": {
+    "name": "缓释追肥",
+    "era": 3,
+    "track": "防灾",
+    "notes": 8,
+    "requires": [
+      "fertilizer",
+      "precise"
+    ],
+    "description": "施用化肥的田块每季新增排放减少 2 点，可与变量施肥叠加，排放最低为 0。"
+  },
+  "buffer_wetland": {
+    "name": "尾水净化湿地",
+    "era": 3,
+    "track": "防灾",
+    "notes": 10,
+    "requires": [
+      "precise",
+      "slope_cover"
+    ],
+    "description": "有效净水沟每季再截留 2 点本田污染和 2 点本河段排放。"
+  },
+  "pedigree": {
+    "name": "良种系谱登记",
+    "era": 3,
+    "track": "育种",
+    "notes": 8,
+    "requires": [
+      "crossbreeding",
+      "field_trials"
+    ],
+    "description": "种圃新开设的试种所育成的品种额外获得 1 点耐逆性，最高为 4 点。"
+  },
+  "regional_trials": {
+    "name": "多点品种比较",
+    "era": 3,
+    "track": "育种",
+    "notes": 11,
+    "requires": [
+      "field_trials",
+      "foreign_introduction"
+    ],
+    "description": "使用已获得的具名品种播种时，每块田基础收成增加 3 份。",
+    "terms": 2
+  },
+  "drought_breeding": {
+    "name": "抗旱品种试验",
+    "era": 3,
+    "track": "育种",
+    "notes": 9,
+    "requires": [
+      "crossbreeding",
+      "phenology"
+    ],
+    "description": "经历旱灾后可立项。暑热时，使用耐逆系品种的田块基础收成增加 3 份。",
+    "event": "旱灾",
+    "terms": 2
+  },
+  "seed_bank": {
+    "name": "种质资源库",
+    "era": 3,
+    "track": "育种",
+    "notes": 12,
+    "requires": [
+      "seed_vault",
+      "pedigree"
+    ],
+    "description": "各作物留种出现不利变异的概率减少 8 个百分点，最低为 0；有利变异概率沿用当前年景。",
+    "terms": 2
+  },
+  "harvest_network": {
+    "name": "产地联合调运",
+    "era": 3,
+    "track": "经济",
+    "notes": 10,
+    "requires": [
+      "cooperative",
+      "long_distance_trade"
+    ],
+    "description": "连通道路每批货物再多装 4 份，与商路开辟合计可装 14 份。"
+  },
+  "machine_pool": {
+    "name": "农机合作社",
+    "era": 3,
+    "track": "经济",
+    "notes": 10,
+    "requires": [
+      "tractor",
+      "cooperative"
+    ],
+    "description": "全谷至少有一座通路、有人值守的农机站时，每季公共预算再减少 2 份口粮。"
+  },
+  "met_network": {
+    "name": "农业气象联测",
+    "era": 3,
+    "track": "防灾",
+    "notes": 9,
+    "requires": [
+      "weather_station",
+      "water_management"
+    ],
+    "description": "通过气象联测就地组织防护。每次动员仍需 2 粮，免付 1 木。"
+  }
+}

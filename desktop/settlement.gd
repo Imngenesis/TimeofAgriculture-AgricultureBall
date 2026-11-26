@@ -35,23 +35,31 @@ static func total_level(s: Dictionary, kind: String) -> int:
   if c.kind == kind and working(c): levels += c.level
  return levels
 
+static func lesson_time(s: Dictionary) -> int:
+ return 15 if "apprentice" in s.tech else LESSON
+
 static func beds(s: Dictionary) -> int:
  return CAMP_BEDS + HOUSE_BEDS * total_level(s, "house")
 
-static func storage(s: Dictionary, zone: int = 0) -> int:
- var capacity = CAMP_STORAGE if zone == 0 else 24
+static func store_levels(s: Dictionary, zone: int) -> int:
+ var levels = 0
  for id in facilities(s, "store"):
-  if V.sector(id) == zone: capacity += STORE_STORAGE * s.cells[id].level
- return capacity
+  if V.sector(id) == zone: levels += s.cells[id].level
+ return levels
+
+static func storage(s: Dictionary, zone: int = 0) -> int:
+ var baseline = CAMP_STORAGE if zone == 0 else 24
+ return baseline + (STORE_STORAGE + (8 if "granary_vent" in s.tech else 0)) * store_levels(s, zone)
 
 static func seed_space(s: Dictionary, zone: int) -> int:
  var plots = 0
  for id in facilities(s, "farm"):
   if V.sector(id) == zone: plots += 1
- return 8 + 3 * plots + floori((storage(s, zone) - (CAMP_STORAGE if zone == 0 else 24)) / 6.0)
+ var stores = store_levels(s, zone)
+ return 8 + 3 * plots + 6 * stores + (6 if stores > 0 and "seed_vault" in s.tech else 0)
 
 static func material_space(s: Dictionary, zone: int, key: String) -> int:
- var bonus = storage(s, zone) - (CAMP_STORAGE if zone == 0 else 24)
+ var bonus = STORE_STORAGE * store_levels(s, zone)
  return(40 if key == "wood" else 30) + floori(bonus / 2.0)
 
 static func seed_ready(game) -> bool:
@@ -67,7 +75,8 @@ static func seed_ready(game) -> bool:
 
 static func covered(s: Dictionary, id: int, kind: String) -> bool:
  for other in facilities(s, kind):
-  if V.distance(id, other) <= s.cells[other].level + (1 if kind == "canal" and "pump" in s.tech else 0): return true
+  var extended = (kind == "canal" and "pump" in s.tech) or (kind == "station" and "tractor" in s.tech)
+  if V.distance(id, other) <= s.cells[other].level + int(extended): return true
  return false
 
 static func demographics(s: Dictionary, served: int) -> int:

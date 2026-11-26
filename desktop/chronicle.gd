@@ -5,7 +5,12 @@ const COPY = preload("res://content/field_guide.json")
 const RESEARCH = {
  "dry": "谷物晾晒", "dike": "早期水利", "scout": "田间巡查", "terrace": "等高筑田",
  "nursery": "育秧移栽", "machine": "机械稻作", "precise": "测土配肥", "fertilizer": "工业合成氨",
- "rice_2": "育秧移栽", "pump": "提水器械", "plough": "曲辕犁"
+ "rice_2": "育秧移栽", "pump": "提水器械", "plough": "曲辕犁",
+ "stone_tools": "早期农具", "slash_burn": "火耕水耨", "phenology": "物候与历法",
+ "weather_station": "物候与历法", "water_management": "早期水利", "canal_gates": "提水器械",
+ "deep_plowing": "曲辕犁", "foreign_introduction": "引进占城稻",
+ "tractor": "机械稻作", "combine": "机械稻作", "variable_rate": "测土配肥",
+ "pedigree": "杂交水稻", "regional_trials": "杂交水稻", "pest_control": "绿色防控与生物农药"
 }
 
 static func enqueue(s: Dictionary, key: String):

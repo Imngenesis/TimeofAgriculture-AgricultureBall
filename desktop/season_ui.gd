@@ -45,6 +45,8 @@ static func folio(h, overlay: Control, key: String, inbox: bool):
  words.add_theme_constant_override("line_spacing", 7)
  words.size_flags_horizontal = Control.SIZE_EXPAND_FILL; flow.add_child(words)
  if data.name in Book.Crops.CAU_CULTIVARS: page.add_child(U.label("育种单位　中国农业大学参与选育", 13, MUTED))
+ if key == "era/1" and h.sim.s.research_record.focus == "":
+  page.add_child(U.label("早期农耕已开放农专专精，按 T 进入手册可选择方向。", 13, MUTED, true))
  var count = h.sim.s.guide.queue.size()
  var label = "下一页" if inbox and count > 1 else "返回战役"
  if inbox: page.add_child(U.label("待阅 %d 页　 ·　 时间已暂停" % count, 13, MUTED))
@@ -77,12 +79,21 @@ static func forecast(h, v):
  v.add_child(U.label(Weather.FORECAST[w.now], 16, U.TEXT, true))
  var incoming = "下季　" + Weather.FORECAST[w.next]
  v.add_child(U.label(incoming, 14, U.DIM, true))
+ var outlook = Weather.outlook(s)
+ if outlook.size() > 1:
+  v.add_child(U.rule())
+  v.add_child(U.label("农专观测记录", 16, U.GOLD))
+  for ahead in range(1, outlook.size() + 1):
+   var weather = outlook[ahead - 1]
+   var month = h.S.SEASONS[(s.turn + ahead) % 4]
+   var risk = Weather.THREATS.get(weather, "") if "weather_station" in s.tech else ""
+   v.add_child(U.label("后 %d 季 · %s　%s%s" % [ahead, month, weather, "　可能出现" + risk if risk != "" else ""], 14, U.TEXT))
  if w.threat != "":
   v.add_child(U.rule())
   v.add_child(U.label("天灾预警　" + w.threat, 19, U.WARN))
   v.add_child(U.label(Weather.IMPACT[w.threat] + "季末结算。", 15, U.TEXT, true))
   var why = Weather.prepare_reason(s)
-  var b = h.btn("已部署防护" if w.prepared else Weather.DEFENSE[w.threat] + "　·　2 粮 1 木", "weather_prepare", null, why == "")
+  var b = h.btn("已部署防护" if w.prepared else Weather.DEFENSE[w.threat] + ("　·　2 粮 1 木" if Weather.defense_wood(s) else "　·　2 粮"), "weather_prepare", null, why == "")
   b.tooltip_text = why; b.disabled = why != ""; v.add_child(b)
   if why != "" and not w.prepared: v.add_child(U.label(why, 13, U.WARN, true))
  else: v.add_child(U.label("本季没有天灾预警", 14, U.GREEN))

@@ -92,6 +92,14 @@ static func roll(f: Dictionary) -> int:
  f.rng = (int(f.rng) * 48271) % 2147483647
  return f.rng % 100
 
+static func trial_time(s: Dictionary, crop: String) -> int:
+ if s.frontier.lines.has(crop): return 30 if "crossbreeding" in s.tech else 40
+ return 32 if "foreign_introduction" in s.tech else 40
+
+static func mutation_odds(s: Dictionary) -> Array:
+ var odds = MUTATION[s.difficulty]
+ return [odds[0], maxi(0, odds[1] - (8 if "seed_bank" in s.tech else 0))]
+
 static func trial_reason(s: Dictionary, crop: String, source: int) -> String:
  var f = s.frontier
  if crop not in NAMES or source not in[0, 1]: return "请选择一种作物与亲本"
@@ -107,11 +115,13 @@ static func start_trial(s: Dictionary, crop: String, source: int):
  var offspring = parent.duplicate()
  if source == 0: offspring.yield_bonus = mini(5, parent.yield_bonus + (2 if cultivated else 1))
  else: offspring.vigor = mini(4, parent.vigor + 1)
+ if "pedigree" in s.tech: offspring.vigor = mini(4, offspring.vigor + 1)
+ var seconds = trial_time(s, crop)
  f.samples[crop] [source] -= 2
  s.food -= 2
  s.ledger.husbandry += 2
- f.trials[crop] = {"due": s.time + 40, "line": offspring, "cross": cultivated, "source": source}
- f.last = "%s%s开始，用%s%s。40 秒后可验收。" % [title(crop), "杂交" if cultivated else "驯化", SOURCES[source], "与栽培品系配组" if cultivated else "建立试验田"]
+ f.trials[crop] = {"due": s.time + seconds, "line": offspring, "cross": cultivated, "source": source}
+ f.last = "%s%s开始，用%s%s。%d 秒后可验收。" % [title(crop), "杂交" if cultivated else "驯化", SOURCES[source], "与栽培品系配组" if cultivated else "建立试验田", seconds]
 
 static func finish_trials(m):
  var f = m.s.frontier
@@ -149,6 +159,14 @@ static func field_bonus(s: Dictionary, id: int) -> int:
  if method(s, crop, 2):
   var fits = {"稻": tier == 0, "粟": tier == 2 or cell.soil < 58, "麦": tier == 1 or f.region == 2, "薯": tier == 2 or f.region == 3, "豆": cell.care >= 30, "玉米": tier == 1 or f.region == 5}
   if fits[crop]: bonus += 4 if crop == "薯" else 3
+ if "deep_plowing" in s.tech and cell.soil >= 58: bonus += 2
+ if "intensive_planting" in s.tech and cell.care >= 36: bonus += 3
+ if "slash_burn" in s.tech and cell.harvests == 0: bonus += 3
+ if cultivar != "原种" and "regional_trials" in s.tech: bonus += 3
+ if cultivar == "耐逆系" and s.weather.now == "暑热" and "drought_breeding" in s.tech: bonus += 3
+ if crop == "粟" and "sahel_mulch" in s.tech and (s.weather.now == "暑热" or cell.soil < 58): bonus += 3
+ if crop == "薯" and tier == 2 and "andes_ridges" in s.tech: bonus += 3
+ if crop == "玉米" and cell.rotation and f.lines.has("豆") and "milpa" in s.tech: bonus += 3
  if cell.soil < 58 or cell.disease > 0 or dry:
   bonus += 2 * int(variety.vigor) + (3 if cultivar == "耐逆系" else 0)
  if dry: bonus -= 4
@@ -158,11 +176,15 @@ static func harvested(m, id: int):
  var f = m.s.frontier
  var crop = field_species(m.s, id)
  var delta_soil = SOIL[crop] + (4 if crop == "豆" and method(m.s, crop, 3) else 0)
+ if m.s.cells[id].harvests == 1 and "slash_burn" in m.s.tech: delta_soil -= 5
+ if crop in ["稻", "粟", "麦", "玉米"] and "straw_return" in m.s.tech: delta_soil += 3
+ if crop == "麦" and "danube_stubble" in m.s.tech: delta_soil += 3
  m.s.cells[id].soil = clampi(m.s.cells[id].soil + delta_soil, 10, 96)
- add_sample(f, crop, 0, 1)
+ var samples = 2 if m.s.research_record.focus == "育种" else 1
+ add_sample(f, crop, 0, samples)
  if f.mutation_turn.get(crop, -1) == m.s.turn: return
  f.mutation_turn[crop] = m.s.turn
- var odds = MUTATION[m.s.difficulty]
+ var odds = mutation_odds(m.s)
  var dice = roll(f)
  var delta = 1 if dice < odds[0] else(-1 if dice < odds[0] + odds[1] else 0)
  if delta != 0:

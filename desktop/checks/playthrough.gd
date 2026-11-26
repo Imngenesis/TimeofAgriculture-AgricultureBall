@@ -269,7 +269,7 @@ func learn(id: String):
  if failed: return
  var spec = sim.techs[id]
  var price = S.Study.bill(sim.s, id, spec)
- await bank_notes(spec[2])
+ await bank_notes(S.Study.notes(sim.s, id, spec))
  await supplies(price[2], price[3])
  var desired = price[1] + seed_target()
  var missing = maxi(0, desired - sim.s.seed)
@@ -719,7 +719,7 @@ func v110_rules():
  var state = model.s
  if not check(state.guide.queue.front() == "env/长江湿地" and "crop/稻" in state.guide.queue, "new game queues its environment and local crop"): return
  var initial = S.Guide.entry("era/0")
- if not check(initial.body == S.Guide.COPY.data.eras[0].body and S.Guide.entry("env/长江湿地").body.begins_with("【待补文案"), "author copy and missing-copy placeholders survive export"): return
+ if not check(initial.body == S.Guide.COPY.data.eras[0].body and S.Guide.entry("env/长江湿地").body == S.Guide.COPY.data.environments["长江湿地"], "author copy and missing-copy placeholders survive export"): return
  var yard_rules = S.F.Farm.Yards
  state.cells[38].kind = "academy"
  state.cells[39].kind = "farm"
@@ -751,8 +751,58 @@ func v110_rules():
  old.erase("guide")
  var migrated = S.new()
  migrated.restore(old)
- if not check(migrated.s.version == 6 and yard_rules.total(migrated.s, "hens") == 1 and yard_rules.total(migrated.s, "milk") == 2, "old livestock and milk survive save migration"): return
+ if not check(migrated.s.version == 7 and yard_rules.total(migrated.s, "hens") == 1 and yard_rules.total(migrated.s, "milk") == 2, "old livestock and milk survive save migration"): return
  report("PASS authored culture, first discoveries, weather defense and damage, pasture production, and legacy herd migration")
+ game.shutdown(0)
+
+func curriculum_campaign():
+ game.start_game()
+ await read_discoveries()
+ await tap("panel", "study")
+ await tap("tech_branch", "育种")
+ await tap("tech_view", "seed_selection")
+ await tap("study_focus")
+ await tap("focus_preview", "育种")
+ if not check(game.hud.find_button("focus_confirm","育种") == null, "an early camp can inspect but cannot commit to a focus"): return
+ await tap("back")
+ # A modern checkpoint isolates the new controls from the independent complete campaign replays.
+ var s = sim.s
+ s.era = 3; s.food = 75; s.seed = 12; s.wood = 30; s.stone = 22; s.science = 12
+ s.cells[38].kind = "academy"; s.cells[39].kind = "farm"
+ S.Roads.inherit_path(s,38,39); S.Roads.rebuild(s)
+ sim.assign("t38",1); sim.assign("t39",1)
+ for w in s.workers: w.travel = 0
+ s.tech = ["seed","dry","stone_tools","plough","large_field_management","machine","tractor","winnow"]
+ s.ledger = sim.book(s.food + s.seed,s.wood,s.stone)
+ S.Guide.discover(s)
+ game.start_game(s.duplicate(true))
+ await read_discoveries()
+ await tap("panel","study");await tap("study_focus");await tap("focus_preview","耕作")
+ await capture("v115-specialization")
+ await tap("focus_confirm","耕作")
+ if not check(sim.s.research_record.focus == "耕作" and game.dialog_key == "", "specialization chosen from confirmation"): return
+ await tap("tech_branch","耕作");await tap("tech_era",3);await tap("tech_view","combine")
+ await capture("v115-handbook")
+ await tap("tech_map")
+ await capture("v115-prerequisites")
+ await tap("map_mode",true)
+ var graphs = game.hud.modal.find_children("*","GraphEdit",true,false)
+ if not check(graphs.size() == 1 and graphs[0].get_connection_list().size() > 50, "connected research graph can be opened"): return
+ await capture("v115-whole-tree")
+ await tap("map_mode",false);await tap("goto_tech","tractor")
+ if not check(game.hud.tech_key == "tractor" and game.dialog_key == "", "graph opens the selected prerequisite"): return
+ await tap("tech_view","combine");await tap("research","combine")
+ if not check(sim.s.study == "combine" and sim.s.science == 4, "UI charged the eight-note specialty price"): return
+ await ticks(S.SEASON_TIME)
+ if not check(sim.s.research_record.terms == 1 and sim.s.study == "combine", "the first observed term was saved at season end"): return
+ game.show_title();await tap("continue");await read_discoveries()
+ if not check(sim.s.research_record.terms == 1 and sim.s.research_record.focus == "耕作", "resume keeps evidence and specialty"): return
+ await tap("panel","study");await tap("tech_branch","耕作");await tap("tech_view","combine")
+ await tap("withdraw_study","combine");await tap("back")
+ await capture("v115-field-project")
+ await ticks(S.SEASON_TIME)
+ if not check("combine" in sim.s.tech and sim.s.study == "", "project completes in an operating settlement"): return
+ report("PASS V1.15 native UI, specialty confirmation, direct and global graph navigation, actual payment, seasonal evidence, persistence and completion")
  game.shutdown(0)
 
 func run(main, out: String):
@@ -762,6 +812,8 @@ func run(main, out: String):
   if arg.begins_with("--difficulty-test="): difficulty = int(arg.trim_prefix("--difficulty-test="))
  picture = DisplayServer.get_name() != "headless"
  report("Native replay on " + DisplayServer.get_name() + " at " + str(DisplayServer.window_get_size()))
+ if "--v115-ui" in OS.get_cmdline_user_args():
+  await frames(10); await curriculum_campaign(); return
  if "--v110-rules" in OS.get_cmdline_user_args():
   v110_rules()
   return

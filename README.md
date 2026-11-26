@@ -1,12 +1,12 @@
-# 百谷长青 V1.10
+# 百谷长青 V1.15 正式版
 
-**[进入网页版](https://imngenesis.github.io/TimeofAgriculture-AgricultureBall/)**　·　[下载 Windows x64 试玩包](https://github.com/Imngenesis/TimeofAgriculture-AgricultureBall/raw/refs/heads/main/dist/RiceByTheRiver-Windows-x64.zip)
+[在线游玩](https://imngenesis.github.io/TimeofAgriculture-AgricultureBall/) · [下载 Windows、离线网页版或源码](https://github.com/Imngenesis/TimeofAgriculture-AgricultureBall/releases/tag/v1.15.0)
 
-从十人的采集营地出发，经过四个时代，最终由农学院与农机学院合建中国农业大学。点击「开始新战役」选择生态和难度。首次发现作物、品种或进入新时代时会打开介绍。天气影响收成，提前防护可以减轻天灾损失。牧场需要道路、牧工和饲料，蛋奶可补充口粮，厩肥能养护附近农田。
+从十人的采集营地开始，经营试验田、农专和拓殖地，最终由农学院与农机学院合建中国农业大学。四个时代共有 79 项课题。可以沿本地作物走专修路线，也可以研究仓储、调运或田间防护。按 **T** 可查看每项课题的收益、投入与前置关系。[V1.15 科技树与试玩说明](docs/v1.15-科技树.md)
 
-请使用支持 WebGL 2 的桌面浏览器，以鼠标和键盘游玩。使用相同浏览器和网址可继续本机的战役。Windows 包需完整解压后启动「百谷长青.exe」。
+**本地试玩**　完整解压 Windows x64 包后，运行「百谷长青.exe」。使用 Web 包时，完整解压，双击「启动网页版.cmd」（需要 Python 3），或在解压目录执行 `python serve_game.py`。用支持 WebGL 2 的桌面浏览器和鼠标、键盘游玩。使用同一浏览器和本地地址可以继续网页版的战役。
 
-本次源码和 Windows 候选包取自提供的 V1.10 交接包。网页版采用同一 Godot 工程，另含中文字体及单线程 Web 导出预设。用 Godot 4.7.2 和配套 Web 模板，在仓库根目录创建 `web-build` 后运行 `godot --headless --path desktop --export-release Web ../web-build/index.html`。将导出的全部文件连同 licenses/ 放在同一静态站点，部署分支为 gh-pages。
+本次正式版修订了作物和环境介绍。图鉴和文化志中的年代短语会整体换行，逗号、句号随前文显示。马铃薯介绍已去除重复句。解压后的试玩包与在线版使用同一份游戏资源。
 
 ## 第一块田
 
@@ -20,7 +20,7 @@
 
 ## 作物、品系与研究
 
-长江湿地和滨海河口以稻开始，萨赫勒以珍珠粟开始，多瑙河以麦开始，安第斯与墨西哥高原分别以马铃薯和玉米开始。荒年随机抽取生态和营址。探险、野外采集带回一种新作物的样本时，该作物的课题页就会出现。进一步的田间课题需要完成驯化。全游戏有 **32 个可研究课题**，其中六条作物分支各有三项专修。
+长江湿地和滨海河口以稻开始，萨赫勒以珍珠粟开始，多瑙河以麦开始，安第斯与墨西哥高原分别以马铃薯和玉米开始。荒年随机抽取生态和营址。探险、野外采集带回一种新作物的样本时，该作物的课题页就会出现。进一步的田间课题需要完成驯化。六条作物分支各有三项专修。另有六项地域农法，只有出生地对应的一项会出现在本局手册。第二时代起可以确立育种、耕作、防灾或经济专精。
 
 | 原种 | 基础粮 | 每田用种 | 秋收副产饲料 | 收获时地力变化 | 适合的经营选择 |
 | --- | ---: | ---: | ---: | ---: | --- |
@@ -33,13 +33,13 @@
 
 表中是地形、品种、年景、照料和灾害结算前的游戏数值。原种、丰穗系和耐逆系可分别留存，并逐田指定下茬。丰穗系每田多用 1 种，丰年有更高的产量上限。耐逆系用种较省，贫瘠、病情或淡水短缺时表现更稳。在田作物沿用播种时的性状。每种作物每季第一次收获会判定自然变异，有利与不利的概率在图鉴中显示。
 
-![正式版农学手册中的耧车课题，可以查看出处背景、用途、前置与所需投入](docs/release-almanac.jpg)
+![V1.15 农学手册展示联合收获的前置课题、专精报价与季末验收条件](docs/v1.15-handbook.jpg)
 
 中国农技包括江东曲辕犁、耧车条播、龙骨水车、竹箕扬场和青田稻鱼共生。它们分别改变田间照料、耗种、灌渠覆盖、谷物收成和灌溉稻田的收益。农具历史介绍参考中国农业博物馆和中国科学技术馆，稻鱼系统参考联合国粮农组织。游戏中的资源折算与产量加成为本作设计。[中国农业博物馆](https://www.ciae.com.cn/detail/zh/31.html) · [中国科学技术馆](https://www.cdstm.cn/museum/zphc/hxzg2017x/art/2017/art_53e94752827344bcbc0a642bab8196bd.html) · [粮农组织的青田稻鱼资料](https://www.fao.org/agroecology/new-knowledge-module/publications/detail/the-globally-important-agricultural-heritage-systems-%28giahs%29-rice-fish-culture-qingtian-county-china/en) · [美术图集与生成提示](docs/art-assets.md)
 
 ## 余粮怎么用
 
-- **研究**按课题一次性扣除点数和所列的粮、种、木、石，投入 16 至 40 人秒完成。点数与未领取札记共用案藏容量，一级农专开局合计 9 点。升时代和扩建农专能增加容量。
+- **研究**按课题一次性扣除点数和所列的粮、种、木、石，分时代投入 16 至 40 人秒。五项现代项目另需两个季末的田间验证。点数与未领取札记共用案藏容量，一级农专开局合计 9 点。升时代和扩建农专能增加容量。
 - **仓储**按地点结算。营地有 48 份口粮仓容，外圩各有 24，每级接通的当地粮仓加 36。种仓随连通农田和粮仓增加，木石料仓也随当地粮仓扩容。货单预占目的地相应仓位。照料的增产逐步递减，野粮每季有采集上限。
 - **拓殖**需要两名空闲居民、4 粮和 1 木。32 秒后探险队带回种源。三处外圩各有独立仓库，道路连上农专后，当地居民才能正常生产。小径每批运 4 份，连续道路每批 8 份。可运粮、种、木、石、饲料，也可迁移居民。
 - **养殖**可引入鸡、山羊，繁育后收取蛋奶，并用厩肥养地。牧场须连接农专并有牧工到岗。滨海河口另有淡水账，十人携 22 水登陆，集雨池每季多收 6 水。
@@ -47,15 +47,16 @@
 
 ## 存档与开发
 
-每季、重大预警和晋阶时自动保存，Esc 菜单可手动存读或从时代起点重试。0.1、0.2、0.3 和 V1.00 Beta 1 的存档可直接继续。迁移时保留既有品系、物资、研究、在途队伍和已开发地块。旧档中已有农专的聚落会补接既有设施的道路。存档位置为 `%APPDATA%\RiceByTheRiver`。
+每季、重大预警和晋阶时自动保存，Esc 菜单可手动存读或从时代起点重试。首次继续可读取 V1.10 及更早支持版本的本机战役。此后写入 V1.15 的独立目录。迁移时保留既有品系、物资、研究、在途队伍和已开发地块。旧档中已有农专的聚落会补接既有设施的道路。存档位置为 `%APPDATA%\RiceByTheRiver\v1.15`。
 
-用 Godot 4.7.2 标准版打开[工程](desktop/project.godot)，按 F5 运行。安装匹配的 Windows x64 导出模板后可本地打包。
+用 Godot 4.7.2 标准版打开[工程](desktop/project.godot)，按 F5 运行。安装匹配的 Windows 或 Web 导出模板后，可以在工程根目录运行对应脚本，成品压缩包位于 `dist/`。
 
 ```powershell
 .\build-windows.ps1 -Godot 'C:\Tools\Godot\Godot_v4.7.2-stable_win64_console.exe'
+.\build-web.ps1 -Godot 'C:\Tools\Godot\Godot_v4.7.2-stable_win64_console.exe'
 ```
 
-规则回归入口为 [农学、品种与路网](desktop/checks/almanac.gd)、[拓殖与养殖](desktop/checks/frontier.gd)和[基础经营与存档迁移](desktop/checks/economy.gd)。发布包也带有[原生交互回放](desktop/checks/playthrough.gd)，可在独立临时目录运行教程与四时代战役。
+规则回归入口为 [V1.15 科技树、专精与跨季试验](desktop/checks/curriculum.gd)、[农学、品种与路网](desktop/checks/almanac.gd)、[拓殖与养殖](desktop/checks/frontier.gd)和[基础经营与存档迁移](desktop/checks/economy.gd)。发布包也带有[原生交互回放](desktop/checks/playthrough.gd)，可在独立临时目录运行教程与四时代战役。
 
 ```powershell
 $out = Join-Path $env:TEMP ("rice-lesson-" + [guid]::NewGuid())
@@ -63,4 +64,4 @@ $out = Join-Path $env:TEMP ("rice-lesson-" + [guid]::NewGuid())
 Get-Content -LiteralPath (Join-Path $out 'verification.txt')
 ```
 
-根目录保留早期设计稿和网页原型，桌面游戏源代码位于 `desktop/`。引擎和第三方组件许可见 [licenses](licenses)。
+四时代游戏的完整 Godot 源代码位于 `desktop/`。新增课题数据在 `desktop/content/research_curriculum.json`。引擎和第三方组件许可见 [licenses](licenses)。

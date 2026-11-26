@@ -147,12 +147,12 @@ func legacy(path: String, output: String):
  source.folder = path.get_base_dir() + "/"
  var sha = FileAccess.get_sha256(path)
  var old = source.read(path.get_file().get_basename())
- if not expect(old.get("version", 0) in[1, 2, 3, 4, 5], "read an earlier release save"): return
+ if not expect(old.get("version", 0) in[1, 2, 3, 4, 5, 6], "read an earlier release save"): return
  var m = Model.new()
  m.restore(old.duplicate(true))
  for key in["turn", "era", "clock", "food", "seed", "tech", "study", "study_time", "science", "workers", "pending", "policy"]:
   expect(m.s[key] == old[key], "old save preserves " + key)
- expect(m.s.version == 6 and m.s.difficulty == old.get("difficulty", 1) and m.s.cells.size() == 180 and m.s.cells[0].has("condition"), "legacy campaign expands into the standard economy")
+ expect(m.s.version == 7 and m.s.difficulty == old.get("difficulty", 1) and m.s.cells.size() == 180 and m.s.cells[0].has("condition"), "legacy campaign expands into the standard economy")
  for i in old.cells.size():
   if old.cells[i].kind != "" or old.cells[i].project != "":
    expect(old.cells[i].kind == m.s.cells[i].kind and old.cells[i].project == m.s.cells[i].project, "existing sites retain IDs")

@@ -1,6 +1,7 @@
 extends RefCounted
 
 const C = preload("res://crop_book.gd")
+const Curriculum = preload("res://curriculum.gd")
 const CODE = C.CODES
 const ROOTS = {
  "稻": ["稻穗留种", "晒稻入仓"], "粟": ["选穗播粟", "干藏粟穗"], "麦": ["麦穗选种", "脱粒入仓"],
@@ -14,8 +15,8 @@ const METHODS = {
  "豆": [["选荚分收", "从成熟豆荚中选出完整种子留作下茬。菜豆基础收成增加 1。"], ["搭架引蔓", "给攀援品系提供支架，增加可用光照。照料达到 30 人秒的豆田多收 3 粮。"], ["豆茬养地", "将豆茬归田以培肥地力。豆田秋收时额外恢复 4 地力，并收 1 饲料。"]],
  "玉米": [["穗行留种", "将不同果穗分行试种并记录表现。玉米基础收成增加 1。"], ["宽行培土", "控制行距并为植株根部培土。台地或墨西哥高原的玉米田多收 3 粮。"], ["籽秆分储", "将籽粒归粮仓、秸秆另储。每块玉米田秋收额外入库 4 饲料。"]]}
 const HERITAGE = {
- "plough": ["江东曲辕犁", 1, 3, ["seed"], "西汉赵过推广的畜力播种机，木耧下并排数只中空耧腿，牛拉人扶，行过之处开沟、落籽、覆土一气呵成，行距与播深皆由耧脚定死。较之扬手漫撒的深浅不一、籽粒聚散，条播出苗成行、整齐均匀，既省下种子，又便于此后中耕除草、顺垄追肥；它本是旱地麦粟的利器，传入稻区后成为旱稻与稻麦轮作的播种基础。农田有人照料时每秒额外积累 1 点照料。", 0],
- "drill": ["耧车条播", 1, 4, ["seed"], "大水漫撒的早期水田，水深难匀、草苗难辨，收成全凭天时。先民把田划成宽窄一致的畦，畦间开沟引水，水层深浅可逐畦调节，旱能灌、涝能排；下种也不再扬手乱撒，而是按等距分株插秧入畦，株行成线。田分畦、秧成行之后，通风受光均匀、除草顺手，用种用水都省，水田自此由粗放转入精耕。粟、麦、玉米每田少用 1 份种粮，最低 1 份。", 1],
+ "plough": ["江东曲辕犁", 1, 3, ["seed"], "以曲辕犁整地，有农人到岗的田块每秒额外积累 1 点照料。", 0],
+ "drill": ["耧车条播", 1, 4, ["seed"], "西汉赵过推广的畜力播种机，木耧下并排数只中空耧腿，牛拉人扶，行过之处开沟、落籽、覆土一气呵成，行距与播深皆由耧脚定死。较之扬手漫撒的深浅不一、籽粒聚散，条播出苗成行、整齐均匀，既省下种子，又便于此后中耕除草、顺垄追肥；它本是旱地麦粟的利器，传入稻区后成为旱稻与稻麦轮作的播种基础。粟、麦、玉米每田少用 1 份种粮，最低 1 份。", 1],
  "pump": ["龙骨水车", 2, 5, ["dike"], "龙骨水车借链板沿斜槽提水。有人操作的灌渠覆盖范围增加一格，便于把水送上田畦。", 2],
  "winnow": ["竹箕扬场", 1, 3, ["dry"], "用竹箕借风分开籽粒和轻糠。连通本地粮仓的稻、粟、麦、玉米每田多收 2 粮。", 4]}
 const BILLS = [[2, 0, 1, 0], [3, 1, 2, 0], [4, 1, 2, 1], [5, 2, 3, 2]]
@@ -32,6 +33,9 @@ static func all(core: Dictionary) -> Dictionary:
    var parents = ["seed" if stage == 0 else id(crop, stage - 1)]
    if stage == 1: parents.append({"稻": "dike", "粟": "scout", "麦": "drill", "薯": "dry", "豆": "rotate", "玉米": "plough"} [crop])
    branches[key] = [method[0], 2 if stage == 1 and crop == "豆" else stage, [2, 4, 6] [stage], parents, method[1]]
+ for key in Curriculum.TOPICS.data:
+  var row = Curriculum.TOPICS.data[key]
+  branches[key] = [row.name, int(row.era), int(row.notes), row.requires, row.description]
  return branches
 
 static func id(crop: String, stage: int) -> String:
@@ -54,7 +58,29 @@ static func bill(s: Dictionary, key: String, spec: Array) -> Array:
   cost = {"稻": [2, 0, 1, 0], "粟": [1, 0, 2, 0], "麦": [2, 0, 0, 1], "薯": [2, 0, 1, 1], "豆": [2, 0, 1, 0], "玉米": [2, 0, 2, 0]} [first]
  elif key == "drill" or key == "plough": cost[3] += 1
  elif subject(key) != "" and spec[1] > 0: cost[1] += 1 if subject(key) not in["薯", "玉米"] else 2
+ if Curriculum.TOPICS.data.has(key):
+  match discipline(key):
+   "育种": cost[1] += 1
+   "耕作": cost[2] += 1
+   "防灾": cost[3] += 1
+   "经济": cost[0] += 2
+  if Curriculum.terms(key) > 0:
+   cost[0] += 2
+   cost[1] += 1
  return cost
+
+static func discipline(key: String) -> String:
+ if Curriculum.TOPICS.data.has(key): return Curriculum.TOPICS.data[key].track
+ if key in HERITAGE: return "防灾" if key == "pump" else "耕作"
+ var crop = subject(key)
+ if crop != "": return "育种" if key.ends_with("_1") else "耕作"
+ return "公共"
+
+static func notes(s: Dictionary, key: String, spec: Array) -> int:
+ var focus = s.research_record.focus
+ var track = discipline(key)
+ if focus == "" or track == "公共": return spec[2]
+ return maxi(1, roundi(spec[2] * 0.70)) if track == focus else ceili(spec[2] * 1.15)
 
 static func title(s: Dictionary, key: String, techs: Dictionary) -> String:
  if key in["seed", "dry"]: return ROOTS[C.START[s.frontier.region]] [0 if key == "seed" else 1]

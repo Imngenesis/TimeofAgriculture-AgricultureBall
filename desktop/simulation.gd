@@ -84,7 +84,7 @@ func reset(difficulty: int = 1, region: int = 0):
  for id in V.COLS * V.ROWS:
   cells.append(new_cell(id))
  cells[camp].kind = "camp"
- s = {"version": 6, "streets": {}, "lesson_step": 0, "lesson_hidden": false, "turn": 0, "clock": 0, "time": 0, "era": 0, "age": 0, "food": profile.food, "seed": 0,
+ s = {"version": 7, "research_record": Study.Curriculum.new_record(), "streets": {}, "lesson_step": 0, "lesson_hidden": false, "turn": 0, "clock": 0, "time": 0, "era": 0, "age": 0, "food": profile.food, "seed": 0,
   "difficulty": difficulty, "wood": profile.wood, "stone": profile.stone, "budget": 1, "efficiency": 100, "districts": [0], "history": [],
   "pop": 10, "science": 0, "tech": [], "study": "", "study_time": 0, "cells": cells, "edges": {},
   "workers": [], "water": [0, 0, 0], "full": 0, "empty": 0, "pending": "", "policy": {},
@@ -167,6 +167,9 @@ func restore(state: Dictionary):
    s.legacy_harvest = true
    s.outcome = ""
   s.version = 6
+ if s.version == 6:
+  Study.Curriculum.migrate(s)
+  s.version = 7
  Roads.rebuild(s)
  events.clear()
 
@@ -266,7 +269,12 @@ func research_reason(id: String) -> String:
  for pre in t[3]:
   if not s.tech.has(pre): missing.append(tech_name(pre))
  if not missing.is_empty(): return "先掌握" + "、".join(missing)
- if s.science < t[2]: return "科技点不足，请派人去农专并领取"
+ if not Study.Curriculum.eligible_region(s, id): return "仅在" + F.REGIONS[int(Study.Curriculum.TOPICS.data[id].region)] + "开展"
+ var hazard = Study.Curriculum.TOPICS.data.get(id, {}).get("event", "")
+ if hazard != "" and hazard not in s.research_record.hazards: return "需要有一次" + hazard + "结算记录"
+ if Study.Curriculum.terms(id) > 0 and Town.facilities(s, "farm").is_empty(): return "田间验证需要至少一块通路且可用的农田"
+ var fee = Study.notes(s, id, t)
+ if s.science < fee: return "还差 %d 点札记，请到农专领取" % (fee - s.science)
  if Town.facilities(s, "academy").is_empty(): return "需有一所正常运作的农专"
  var cost = Study.bill(s, id, t)
  var lacks = []
@@ -283,13 +291,48 @@ func research(id: String) -> String:
  if why != "": return why
  var spec = techs[id]
  var cost = Study.bill(s, id, spec)
- s.science -= spec[2]
+ s.science -= Study.notes(s, id, spec)
  for i in 4: E.book_stock(s, 0, ["food", "seed", "wood", "stone"] [i], - cost[i], "research")
  s.study = id
+ s.research_record.terms = 0
+ s.research_record.observations = 0
  s.study_time = Study.timing(spec)
  s.rev += 1
  note("开始研习" + tech_name(id) + "。")
  return ""
+
+func change_focus(track: String) -> String:
+ var why = Study.Curriculum.choose(s, track)
+ if why == "": note("农专确立" + track + "专精。")
+ return why
+
+func study_status() -> String:
+ if s.study == "": return ""
+ var terms = Study.Curriculum.terms(s.study)
+ var label = "还需 %d 人秒" % s.study_time if s.study_time > 0 else "案头研习已完成"
+ if terms > 0:
+  label += "　·　验证 %d/%d 季" % [s.research_record.terms, terms]
+  if s.research_record.terms < terms: label += "　·　本季 %d/%d 秒" % [s.research_record.observations, Study.Curriculum.OBSERVATIONS]
+ return label
+
+func cancel_trial(key: String) -> String:
+ if s.study != key or Study.Curriculum.terms(key) == 0: return "该验证项目当前未在研"
+ note("已撤回「" + tech_name(key) + "」，本次用料和札记已耗用。")
+ s.study = ""
+ s.study_time = 0
+ s.research_record.terms = 0
+ s.research_record.observations = 0
+ s.rev += 1
+ return ""
+
+func complete_study():
+ if s.study == "" or s.study_time > 0 or s.research_record.terms < Study.Curriculum.terms(s.study): return
+ s.tech.append(s.study)
+ note("研习完成 · " + tech_name(s.study) + "。")
+ s.study = ""
+ s.research_record.terms = 0
+ s.research_record.observations = 0
+ s.rev += 1
 
 func reserve(release: bool = false, zone: int = 0) -> String:
  var bin = E.warehouse(s, zone)
@@ -753,6 +796,8 @@ func work():
  for i in s.workers.size():
   if s.workers[i].travel > 0: s.workers[i].travel -= 1
  var season = int(s.turn) % 4
+ var observing_school = false
+ var observing_field = false
  for i in s.cells.size():
   var c = s.cells[i]
   if c.kind == "" and c.project == "": continue
@@ -761,20 +806,19 @@ func work():
   if c.project != "":
    if c.project == "university" and Town.facilities(s, "engineering").is_empty(): continue
    var bonus = 2 if c.project == "terrace" and s.policy.get("rain", "") == "slope" and not s.rain else 1
+   if c.project == "farm" and "stone_tools" in s.tech: bonus = 2
    c.done += hands * bonus
    if c.done >= BUILD[c.project] [3]: _finish_site(i)
   elif c.kind == "academy" and Town.working(c):
    if s.study != "":
     s.study_time = maxi(0, s.study_time - hands)
-    if s.study_time == 0:
-     s.tech.append(s.study)
-     note("研习完成 · " + tech_name(s.study) + "。")
-     s.rev += 1
-     s.study = ""
+    observing_school = true
+    complete_study()
    elif c.notes + s.science < Study.limit(s, c.level):
     c.lesson += hands
-    while c.lesson >= Town.LESSON and c.notes + s.science < Study.limit(s, c.level):
-     c.lesson -= Town.LESSON
+    var interval = Town.lesson_time(s)
+    while c.lesson >= interval and c.notes + s.science < Study.limit(s, c.level):
+     c.lesson -= interval
      c.notes += 1
      s.ledger.science += 1
   elif E.DEPOTS.has(c.kind) and c.connected:
@@ -800,6 +844,7 @@ func work():
     s.food += 1
     s.ledger.gather += 1
   elif c.kind == "farm" and Town.working(c):
+   observing_field = true
    var zone = V.sector(i)
    var plan = F.Crops.for_sowing(s, i)
    var seed_fee = F.Crops.seed_cost(s, plan[0], plan[1])
@@ -816,9 +861,14 @@ func work():
     E.book_stock(s, zone, "seed", - seed_fee, "sow")
     if s.flood_at >= 0 and s.turn > s.flood_at: s.resown = true
     s.rev += 1
-   if c.crop: c.care = mini(100, c.care + hands + (1 if "plough" in s.tech else 0))
+   if c.crop:
+    var care = hands + int("plough" in s.tech) + int(Study.Curriculum.focused(s, "耕作"))
+    if hands == 1 and "large_field_management" in s.tech: care += 1
+    c.care = mini(100, c.care + care)
   elif i == s.frontier.home and s.policy.get("flood", "") == "move" and s.flood_at < 0:
    s.evacuated += hands
+ if observing_school and observing_field and Study.Curriculum.terms(s.study) > s.research_record.terms:
+  s.research_record.observations = mini(Study.Curriculum.OBSERVATIONS, s.research_record.observations + 1)
  for k in s.edges:
   var e = s.edges[k]
   if e.repairing:
@@ -880,7 +930,7 @@ func hit_flood():
  for i in s.flood_cells:
   if s.cells[i].kind == "store": exposed_store = true
   if s.cells[i].kind == "farm": exposed_farms += 1
- var threatened = 6 + 2 * exposed_farms + (4 if exposed_store else 0)
+ var threatened = 6 + 2 * exposed_farms + (4 if exposed_store else 0) - (2 if "basic_protection" in s.tech else 0)
  s.rescued = mini(moved, threatened)
  var damage = maxi(0, threatened - moved)
  var seed_loss = mini(s.seed, mini(2, damage))
@@ -908,10 +958,14 @@ func expected_yield(id: int) -> int:
  if V.sector(id) == 3 and V.tier(id) == 0: gross += 5
  gross += Weather.yield_delta(s, id, crop)
  if Town.covered(s, id, "engineering"): gross += 2
- if Town.covered(s, id, "station"): gross += 5
- if Town.covered(s, id, "canal"): gross += 3
+ if Town.covered(s, id, "station"): gross += 5 + (3 if "combine" in s.tech else 0)
+ if Town.covered(s, id, "canal"):
+  gross += 3
+  if c.rotation and "soil_rotation" in s.tech: gross += 3
+  if crop == "稻" and V.tier(id) == 0 and "polder_drain" in s.tech: gross += 2
  if Town.covered(s, id, "nursery"): gross += 4
- if c.precise: gross += 3
+ if c.precise:
+  gross += 3 + (2 if c.fertilized and "variable_rate" in s.tech else 0)
  if c.fertilized: gross += 6 + (4 if s.policy.get("runoff", "") == "intensive" else 0)
  var land_factor = 1.0 - 0.004 * float(c.sown_pollution if c.crop else c.pollution)
  var pest_factor = 1.0 - minf(0.48, (c.birds + c.weeds + c.disease) / 330.0)
@@ -925,7 +979,8 @@ func has_blight(id: int) -> bool:
 
 func seed_saved(id: int, amount: int, room: int) -> int:
  var next = F.Crops.for_sowing(s, id)
- return mini(amount, mini(F.Crops.seed_cost(s, next[0], next[1]), maxi(0, room)))
+ var reserved = F.Crops.seed_cost(s, next[0], next[1]) + int("seed_selection" in s.tech)
+ return mini(amount, mini(reserved, maxi(0, room)))
 
 func forecast_harvest(zone: int) -> Dictionary:
  var result = {"food": 0, "seed": 0}
@@ -939,6 +994,7 @@ func forecast_harvest(zone: int) -> Dictionary:
  return result
 
 func harvest():
+ var local_harvests = 0
  var total = 0
  var affected_harvest = false
  for i in farms():
@@ -959,10 +1015,10 @@ func harvest():
   c.care = 0
   var zone = V.sector(i)
   var crop = F.Crops.field_species(s, i)
-  var bin = E.warehouse(s, zone)
+  if zone == 0 and Town.working(c): local_harvests += 1
   var saved = seed_saved(i, amount, F.free_space(s, zone, "seed"))
   var byproduct = F.Crops.fodder(s, crop)
-  var forage_bin = s.frontier if zone == 0 else bin
+  var forage_bin = s.frontier if zone == 0 else E.warehouse(s, zone)
   var room = F.free_space(s, zone, "feed")
   forage_bin.feed += mini(byproduct, room)
   if zone == 0: s.ledger.fodder += mini(byproduct, room)
@@ -971,6 +1027,14 @@ func harvest():
   total += amount
   s.first_crop = true
   s.rev += 1
+ if local_harvests >= 2 and "field_trials" in s.tech:
+  var academy = academy_id()
+  if academy >= 0 and Town.working(s.cells[academy]) and assigned("t" + str(academy), true) > 0:
+   var school = s.cells[academy]
+   if school.notes + s.science < Study.limit(s, school.level):
+    school.notes += 1
+    s.ledger.science += 1
+    note("对照秋收已记录，农专新增 1 份待领札记。")
  if total > 0:
   if affected_harvest:
    s.after_blight = true
@@ -985,21 +1049,41 @@ func water_step():
   var runoff = 0
   if c.fertilized:
    runoff = (3 if c.precise else 7) + (3 if s.policy.get("runoff", "") == "intensive" else 0)
+   if c.precise and "variable_rate" in s.tech: runoff -= 2
+   if "slow_release" in s.tech: runoff -= 2
+   runoff = maxi(0, runoff)
   var removal = 0
+  var wetland = 2 if c.ditch and Town.working(c) and "buffer_wetland" in s.tech else 0
   if Town.working(c):
    removal = (5 if c.ditch else 0) + (2 if c.precise else 0) + (1 if c.rotation else 0)
-  c.pollution = clampi(c.pollution + runoff - removal, 0, 100)
-  load_by_reach[V.reach(i)] += runoff - (8 if c.ditch and Town.working(c) else 0)
+  c.pollution = clampi(c.pollution + runoff - removal - wetland, 0, 100)
+  load_by_reach[V.reach(i)] += runoff - wetland - (8 if c.ditch and Town.working(c) else 0)
  for r in 3:
   var inflow = roundi(previous[r - 1] * 0.38) if r > 0 else 0
   s.water[r] = clampi(roundi(previous[r] * 0.55) + inflow + load_by_reach[r] - (4 if s.policy.get("runoff", "") == "buffer" and r == 2 else 0), 0, 100)
 
 func seasonal_pressure():
- for i in farms():
+ var plots = farms()
+ var diversity = {}
+ if "crop_diversity" in s.tech:
+  for i in plots:
+   var c = s.cells[i]
+   if not c.crop or not Town.working(c): continue
+   var zone = V.sector(i)
+   if not diversity.has(zone): diversity[zone] = {}
+   var line = F.Crops.field_species(s, i) + "/" + c.get("sown_variety", F.Crops.variety_name(s, i))
+   diversity[zone][line] = true
+ for i in plots:
   var c = s.cells[i]
   var birds = 4 if s.policy.has("birds") and c.crop else -3
   var weeds = 7 if s.policy.has("weeds") and Town.covered(s, i, "canal") else -3
   var disease = 8 if has_blight(i) else -4
+  if "basic_protection" in s.tech: birds -= 2
+  if c.crop and "intensive_planting" in s.tech and c.care >= 36: disease += 2
+  if c.crop and diversity.get(V.sector(i), {}).size() >= 2: disease -= 4
+  if "pest_control" in s.tech and (c.rotation or c.patrol >= s.turn):
+   weeds -= 4
+   disease -= 4
   c.birds = clampi(c.birds + birds - (3 if s.policy.get("birds", "") == "watch" or c.patrol >= s.turn else 0), 0, 100)
   c.weeds = clampi(c.weeds + weeds - (5 if s.policy.get("weeds", "") == "clear" or c.rotation else 0), 0, 100)
   c.disease = clampi(c.disease + disease - (5 if c.rotation or c.patrol >= s.turn else 0), 0, 100)
@@ -1017,11 +1101,18 @@ func _population(served: int):
 
 func finish_season():
  var season = int(s.turn) % 4
+ if Study.Curriculum.terms(s.study) > 0:
+  if s.research_record.observations >= Study.Curriculum.OBSERVATIONS:
+   s.research_record.terms += 1
+   note("完成一季田间验证 · " + tech_name(s.study))
+  s.research_record.observations = 0
+  complete_study()
  if s.era == 1 and s.policy.has("flood") and s.flood_at < 0: hit_flood()
  if s.era == 2 and s.policy.has("rain") and not s.rain:
   for i in farms():
    var c = s.cells[i]
    var erosion = 4 if c.terrace or c.rotation else 20
+   if erosion == 20 and V.tier(i) >= 1 and "slope_cover" in s.tech: erosion -= 6
    c.soil = maxi(10, c.soil - maxi(1, erosion - (6 if s.policy.rain == "mulch" else 0)))
   s.rain = true
   s.rev += 1
@@ -1032,7 +1123,10 @@ func finish_season():
  if season == 3: s.winter = true
  for i in farms():
   var c = s.cells[i]
-  c.soil = clampi(c.soil + (3 if c.rotation else(-2 if c.crop else 0)), 10, 96)
+  var change = 3 if c.rotation else (-2 if c.crop else 0)
+  if "canal_gates" in s.tech and Town.working(c) and Town.covered(s, i, "canal"):
+   change += 3 if s.weather.now == "暑热" or s.weather.threat == "旱灾" else 1
+  c.soil = clampi(c.soil + change, 10, 96)
  water_step()
  for c in s.cells:
   if c.kind in FACILITIES: c.condition = maxi(0, c.condition - 1)

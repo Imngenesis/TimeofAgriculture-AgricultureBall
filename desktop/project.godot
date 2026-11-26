@@ -3,7 +3,7 @@ config_version=5
 [application]
 config/name="百谷长青"
 config/description="在六种生态中探索种源、经营拓殖地，从采集走向现代农业。"
-config/version="1.1.0"
+config/version="1.15"
 config/features=PackedStringArray("4.7")
 config/icon="res://art/riverbend.png"
 boot_splash/image="res://art/riverbend.png"
@@ -20,6 +20,9 @@ window/size/window_width_override=1280
 window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[internationalization]
+locale/include_text_server_data=true
 
 [rendering]
 renderer/rendering_method="gl_compatibility"

@@ -86,7 +86,12 @@ static func route(s: Dictionary, a: int, b: int) -> Dictionary:
  for tile in tiles:
   for place in s.districts:
    if place not in[a, b] and anchor(s, place) == tile: stops.append(place)
- return {"path": line, "time": travel_time(line, paved), "road": paved, "stops": stops}
+ var seconds = travel_time(line, paved)
+ if "long_distance_trade" in s.tech: seconds = maxi(1, ceili(seconds * 0.75))
+ var capacity = 4
+ if paved:
+  capacity = 8 + (2 if "trade_routes" in s.tech else 0) + (4 if "harvest_network" in s.tech else 0)
+ return {"path": line, "time": seconds, "capacity": capacity, "road": paved, "stops": stops}
 
 static func journey_point(job: Dictionary, time: float) -> Vector2:
  var ratio = clampf((time - job.start) / maxf(1, job.due - job.start), 0, 1)
@@ -136,7 +141,7 @@ static func reason(m, cmd: String, arg) -> String:
      if amount != 1: return "每次迁移一名居民"
      if a == 0 and(m.free_workers() < 1 or s.pop <= 1): return "营地需保留居民且有空闲人手"
      if b == 0 and s.pop + incoming(s) >= Town.beds(s): return "需要一个未预留的营地床位"
-    elif amount > (8 if route(s, a, b).road else 4): return "数量超过单批运力"
+    elif amount > route(s, a, b).capacity: return "数量超过单批运力"
     if stock(s, a, k) < amount: return "出发地库存不足"
     if k in["seed", "wood", "stone", "feed"]:
      if amount > free_space(s, b, k): return "目的地仓位不足，已计入在途货物"
@@ -225,9 +230,10 @@ static func tick(m):
    if j.to not in f.survey: f.survey.append(j.to)
    exchange(m, 0, "people", 1)
    exchange(m, 0, "people", 1)
-   Crops.add_sample(f, j.crop, 0, 2)
-   Crops.add_sample(f, j.crop, 1, 2)
-   f.last = "%s勘探归来，带回%s丰穗、耐逆种源各 2 份。" % [V.SECTORS[j.to], Crops.title(j.crop)]
+   var samples = 3 if "foreign_introduction" in s.tech else 2
+   Crops.add_sample(f, j.crop, 0, samples)
+   Crops.add_sample(f, j.crop, 1, samples)
+   f.last = "%s勘探归来，带回%s丰穗、耐逆种源各 %d 份。" % [V.SECTORS[j.to], Crops.title(j.crop), samples]
   else:
    exchange(m, j.to, j.key, j.amount)
    f.last = "%s已接收 %d %s。" % [V.SECTORS[j.to], j.amount, LABEL[j.key]]

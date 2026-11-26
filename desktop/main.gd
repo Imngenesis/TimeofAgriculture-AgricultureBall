@@ -35,6 +35,7 @@ func _ready():
    qa_directory = arg.trim_prefix("--test-output=")
    saves.folder = qa_directory.path_join("saves") + "/"
    DirAccess.make_dir_recursive_absolute(saves.folder)
+ if not testing: saves.use_version_folder()
  add_child(world)
  world.setup(sim)
  add_child(audio)
@@ -237,7 +238,39 @@ func command(cmd: String, arg = null):
    if dialog_key != "": close_modal()
    sim.s.lesson_hidden = false; sim.s.lesson_step = 0; Model.Lesson.update(sim)
    if sim.s.lesson_step >= Model.Lesson.STEPS.size(): modal("lesson_book")
-  "tech_branch": hud.tech_branch = arg; hud.tech_key = ""
+  "tech_branch": hud.tech_branch = arg; hud.tech_key = ""; hud.tech_era = sim.s.era
+  "tech_era": hud.tech_era = clampi(int(arg), 0, 3); hud.tech_key = ""
+  "tech_map":
+   if not sim.techs.has(hud.tech_key): hud.tech_key = "seed"
+   hud.map_overview = false
+   modal("tech_map")
+  "map_mode":
+   if dialog_key != "tech_map": return
+   hud.map_overview = bool(arg)
+   modal("tech_map")
+  "goto_tech":
+   if not sim.techs.has(arg) or not hud.Research.MapView.visible_topic(sim, arg): return
+   if dialog_key == "tech_map": close_modal()
+   hud.panel_key = "study"
+   hud.tech_key = arg; hud.tech_era = sim.techs[arg][1]; hud.tech_branch = hud.Research.branch(sim, arg)
+  "study_focus":
+   hud.proposed_focus = sim.s.research_record.focus
+   modal("study_focus")
+  "focus_preview":
+   if dialog_key != "study_focus" or arg not in Model.Study.Curriculum.TRACKS: return
+   hud.proposed_focus = arg
+   modal("study_focus")
+  "focus_confirm":
+   if dialog_key != "study_focus" or arg != hud.proposed_focus: return
+   result = sim.change_focus(arg)
+   if result == "":
+    close_modal(); write_save("campaign"); hud.notify(sim.events.back())
+  "withdraw_study":
+   if sim.s.study == arg and Model.Study.Curriculum.terms(arg) > 0: modal("withdraw_study")
+  "withdraw_confirm":
+   if dialog_key != "withdraw_study": return
+   result = sim.cancel_trial(arg)
+   if result == "": close_modal(); write_save("campaign"); hud.notify(sim.events.back())
   "tech_view": hud.tech_key = arg
   "open_crop_study": hud.panel_key = "study"; hud.tech_branch = arg; hud.tech_key = ""
   "frontier_tab": hud.frontier_tab = arg
@@ -320,7 +353,9 @@ func command(cmd: String, arg = null):
    select(sim.s.edges[arg].a, true); edge_job = "e" + arg
   "research":
    result = sim.research(arg)
-   if result == "": hud.notify("开始研习「%s」，需 %d 人秒。" % [sim.tech_name(arg), sim.s.study_time])
+   if result == "":
+    hud.notify("开始研习「%s」，%s。" % [sim.tech_name(arg), sim.study_status()])
+    write_save("campaign")
   "academy":
    if sim.academy_id() >= 0: select(sim.academy_id(), true)
    else:
