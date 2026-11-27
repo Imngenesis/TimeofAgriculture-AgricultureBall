@@ -177,7 +177,7 @@ func teach():
   2: join_site(s.frontier.home)
   4:
    hud.panel_key = "study"
-   hud.tech_branch = Model.F.START[s.frontier.region]; hud.tech_key = "seed"
+   hud.tech_branch = "全部"; hud.tech_source = ""; hud.tech_ready = false; hud.tech_era = 0; hud.tech_key = "seed"
   5, 6, 7:
    var id = Model.Lesson.field(sim)
    if id < 0: command("tool", "farm")
@@ -238,8 +238,15 @@ func command(cmd: String, arg = null):
    if dialog_key != "": close_modal()
    sim.s.lesson_hidden = false; sim.s.lesson_step = 0; Model.Lesson.update(sim)
    if sim.s.lesson_step >= Model.Lesson.STEPS.size(): modal("lesson_book")
-  "tech_branch": hud.tech_branch = arg; hud.tech_key = ""; hud.tech_era = sim.s.era
-  "tech_era": hud.tech_era = clampi(int(arg), 0, 3); hud.tech_key = ""
+  "tech_branch": hud.tech_branch = arg
+  "tech_era": hud.tech_era = clampi(int(arg), -1, 3)
+  "tech_ready": hud.tech_ready = not hud.tech_ready
+  "tech_context_menu": modal("tech_context_menu")
+  "tech_context":
+   if dialog_key != "tech_context_menu": return
+   close_modal(); hud.tech_source = arg
+  "tech_reset":
+   hud.tech_branch = "全部"; hud.tech_source = ""; hud.tech_ready = false; hud.tech_era = -1
   "tech_map":
    if not sim.techs.has(hud.tech_key): hud.tech_key = "seed"
    hud.map_overview = false
@@ -252,6 +259,7 @@ func command(cmd: String, arg = null):
    if not sim.techs.has(arg) or not hud.Research.MapView.visible_topic(sim, arg): return
    if dialog_key == "tech_map": close_modal()
    hud.panel_key = "study"
+   hud.tech_source = ""; hud.tech_ready = false
    hud.tech_key = arg; hud.tech_era = sim.techs[arg][1]; hud.tech_branch = hud.Research.branch(sim, arg)
   "study_focus":
    hud.proposed_focus = sim.s.research_record.focus
@@ -272,7 +280,8 @@ func command(cmd: String, arg = null):
    result = sim.cancel_trial(arg)
    if result == "": close_modal(); write_save("campaign"); hud.notify(sim.events.back())
   "tech_view": hud.tech_key = arg
-  "open_crop_study": hud.panel_key = "study"; hud.tech_branch = arg; hud.tech_key = ""
+  "open_crop_study":
+   hud.panel_key = "study"; hud.tech_branch = "全部"; hud.tech_source = arg; hud.tech_era = -1; hud.tech_ready = false; hud.tech_key = ""
   "frontier_tab": hud.frontier_tab = arg
   "atlas_crop": hud.atlas_crop = arg
   "load_size": hud.full_load = arg
@@ -354,6 +363,7 @@ func command(cmd: String, arg = null):
   "research":
    result = sim.research(arg)
    if result == "":
+    hud.tech_ready = false
     hud.notify("开始研习「%s」，%s。" % [sim.tech_name(arg), sim.study_status()])
     write_save("campaign")
   "academy":
@@ -383,7 +393,9 @@ func command(cmd: String, arg = null):
     close_modal()
     hud.panel_key = ""
     if sim.s.outcome == "won": modal("end")
-    elif int(arg) < 3: write_save("chapter")
+    elif int(arg) < 3:
+     if hud.tech_era == int(arg): hud.tech_era = sim.s.era
+     write_save("chapter")
     else: select(sim.academy_id(), true); hud.notify("合校工程开工，派遣工人完成 96 人秒建设。")
     write_save("campaign")
     audio.effect("finish")

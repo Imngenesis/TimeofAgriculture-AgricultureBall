@@ -31,7 +31,7 @@ New-Item -ItemType Directory -Force -Path $notices | Out-Null
 foreach ($notice in (Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot "licenses") -File)) {
     Copy-Item -LiteralPath $notice.FullName -Destination $notices -Force
 }
-$archive = Join-Path $dist "BaiguChangqing-v1.15-Web.zip"
+$archive = Join-Path $dist "BaiguChangqing-research-preview-Web.zip"
 $files = @((Get-ChildItem -LiteralPath $build -File -Filter "index.*").FullName) + @(
     (Join-Path $build "serve_game.py"), (Join-Path $build "启动网页版.cmd"),
     (Join-Path $build "试玩说明.txt"), $notices

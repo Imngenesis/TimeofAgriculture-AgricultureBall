@@ -31,7 +31,6 @@ static func all(core: Dictionary) -> Dictionary:
    var key = id(crop, stage)
    var method = METHODS[crop] [stage]
    var parents = ["seed" if stage == 0 else id(crop, stage - 1)]
-   if stage == 1: parents.append({"稻": "dike", "粟": "scout", "麦": "drill", "薯": "dry", "豆": "rotate", "玉米": "plough"} [crop])
    branches[key] = [method[0], 2 if stage == 1 and crop == "豆" else stage, [2, 4, 6] [stage], parents, method[1]]
  for key in Curriculum.TOPICS.data:
   var row = Curriculum.TOPICS.data[key]
@@ -75,6 +74,14 @@ static func discipline(key: String) -> String:
  var crop = subject(key)
  if crop != "": return "育种" if key.ends_with("_1") else "耕作"
  return "公共"
+
+static func chapter(key: String) -> String:
+ var category = discipline(key)
+ if category != "公共": return category
+ if key in ["seed", "nursery"]: return "育种"
+ if key == "dry": return "经济"
+ if key in ["dike", "scout", "terrace"]: return "防灾"
+ return "耕作"
 
 static func notes(s: Dictionary, key: String, spec: Array) -> int:
  var focus = s.research_record.focus

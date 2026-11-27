@@ -277,6 +277,7 @@ func learn(id: String):
  await stock_seed(desired)
  await tap("panel", "study")
  await tap("tech_branch", game.hud.Research.branch(sim, id))
+ await tap("tech_era", spec[1])
  await tap("tech_view", id)
  if not check(sim.research_reason(id) == "", "can begin research " + id + " " + sim.research_reason(id)): return
  await tap("research", id); await tap("closepanel")
@@ -671,7 +672,7 @@ func lesson_campaign():
  await tap("new"); await tap("region", 2); await tap("difficulty", 0)
  if game.dialog_key == "restart": await tap("confirmed_new")
  var s = sim.s
- if not check(s.lesson_step == 0 and game.hud.tech_branch == "麦", "Danube starts with the wheat notebook and first task"): return
+ if not check(s.lesson_step == 0 and game.hud.tech_key == "seed" and sim.tech_name("seed") == "麦穗选种", "Danube starts with the wheat notebook and first task"): return
  await tap("hint")
  for n in 2: await tap("assign", ["t19", 1])
  await visit(42)
@@ -698,11 +699,11 @@ func lesson_campaign():
  if not check(s.lesson_step == 8 or(s.first_crop and s.lesson_step == 7), "first harvest reached"): return
  await ticks(1)
  if not check(s.lesson_step == 8, "eight lessons completed by play"): return
- await tap("panel", "study"); await tap("tech_branch", "农具"); await tap("tech_view", "drill")
+ await tap("panel", "study"); await tap("tech_branch", "全部"); await tap("tech_context_menu"); await tap("tech_context", "农具"); await tap("tech_era", 1); await tap("tech_view", "drill")
  await capture("formal-almanac")
  await tap("closepanel"); await tap("panel", "frontier"); await tap("frontier_tab", "探险")
  await tap("frontier_action", ["survey", [1, "稻"]]); await ticks(32)
- await tap("closepanel"); await tap("panel", "study"); await tap("tech_branch", "稻"); await tap("tech_view", "rice_1")
+ await tap("closepanel"); await tap("panel", "study"); await tap("tech_context_menu"); await tap("tech_context", "稻"); await tap("tech_era", 0); await tap("tech_view", "rice_1")
  if not check(S.Study.discovered(s, "稻") and not s.frontier.lines.has("稻"), "new crop research opens when the sample arrives"): return
  await capture("formal-new-crop"); await tap("closepanel")
  await key(KEY_G); await tap("street_mode"); await choose_cell(38); await choose_cell(39)
@@ -751,7 +752,7 @@ func v110_rules():
  old.erase("guide")
  var migrated = S.new()
  migrated.restore(old)
- if not check(migrated.s.version == 7 and yard_rules.total(migrated.s, "hens") == 1 and yard_rules.total(migrated.s, "milk") == 2, "old livestock and milk survive save migration"): return
+ if not check(migrated.s.version == 8 and yard_rules.total(migrated.s, "hens") == 1 and yard_rules.total(migrated.s, "milk") == 2, "old livestock and milk survive save migration"): return
  report("PASS authored culture, first discoveries, weather defense and damage, pasture production, and legacy herd migration")
  game.shutdown(0)
 
@@ -772,7 +773,9 @@ func curriculum_campaign():
  S.Roads.inherit_path(s,38,39); S.Roads.rebuild(s)
  sim.assign("t38",1); sim.assign("t39",1)
  for w in s.workers: w.travel = 0
- s.tech = ["seed","dry","stone_tools","plough","large_field_management","machine","tractor","winnow"]
+ s.cells[48].kind = "farm"; s.cells[39].harvests = 1; s.cells[48].harvests = 1
+ S.Roads.inherit_path(s,38,48); S.Roads.rebuild(s)
+ s.tech = ["seed","dry","stone_tools","plough","deep_plowing","machine","tractor","intensive_planting"]
  s.ledger = sim.book(s.food + s.seed,s.wood,s.stone)
  S.Guide.discover(s)
  game.start_game(s.duplicate(true))
@@ -782,13 +785,16 @@ func curriculum_campaign():
  await tap("focus_confirm","耕作")
  if not check(sim.s.research_record.focus == "耕作" and game.dialog_key == "", "specialization chosen from confirmation"): return
  await tap("tech_branch","耕作");await tap("tech_era",3);await tap("tech_view","combine")
- await capture("v115-handbook")
+ if not check("winnow" not in s.tech and sim.research_reason("combine") == "", "two connected fields open alternative combine research without winnowing"): return
+ await capture("research-handbook")
  await tap("tech_map")
- await capture("v115-prerequisites")
+ var graph = game.hud.modal.find_children("*","GraphEdit",true,false)[0]
+ if not check(graph.has_node("route_0") and graph.has_node("route_1"), "two named routes visible on the diagram"): return
+ await capture("research-routes")
  await tap("map_mode",true)
  var graphs = game.hud.modal.find_children("*","GraphEdit",true,false)
  if not check(graphs.size() == 1 and graphs[0].get_connection_list().size() > 50, "connected research graph can be opened"): return
- await capture("v115-whole-tree")
+ await capture("research-network")
  await tap("map_mode",false);await tap("goto_tech","tractor")
  if not check(game.hud.tech_key == "tractor" and game.dialog_key == "", "graph opens the selected prerequisite"): return
  await tap("tech_view","combine");await tap("research","combine")
@@ -799,11 +805,36 @@ func curriculum_campaign():
  if not check(sim.s.research_record.terms == 1 and sim.s.research_record.focus == "耕作", "resume keeps evidence and specialty"): return
  await tap("panel","study");await tap("tech_branch","耕作");await tap("tech_view","combine")
  await tap("withdraw_study","combine");await tap("back")
- await capture("v115-field-project")
+ await capture("farm-evidence")
  await ticks(S.SEASON_TIME)
  if not check("combine" in sim.s.tech and sim.s.study == "", "project completes in an operating settlement"): return
- report("PASS V1.15 native UI, specialty confirmation, direct and global graph navigation, actual payment, seasonal evidence, persistence and completion")
+ await alternative_era_controls()
+ if failed: return
+ report("PASS native research handbook, alternative route without winnowing, diagram navigation, specialization cost, two seasons and save/resume")
  game.shutdown(0)
+
+func alternative_era_controls():
+ # Prepare a flood survivor with a safe store. Advance via grain storage in both eras.
+ sim.reset(0,0)
+ var s = sim.s
+ s.era = 1; s.food = 85; s.seed = 9; s.full = 2
+ s.flood_at = 0; s.flood_time = 0; s.resown = true
+ s.tech = ["seed","dry","basic_protection","market_trade"]
+ for entry in [[38,"academy"],[39,"farm"],[37,"farm"],[34,"store"],[35,"house"]]:
+  s.cells[entry[0]].kind = entry[1]
+  S.Roads.inherit_path(s,38,entry[0])
+ S.Roads.rebuild(s); S.Guide.setup(s,true)
+ game.start_game(s.duplicate(true)); await read_discoveries()
+ if not check(sim.advance_reason() == "", "high-store route can advance after the real flood requirements"): return
+ await tap("panel","era"); await capture("era-choice"); await tap("review_era"); await tap("advance",1)
+ if not check(sim.s.era == 2 and sim.s.food == 65 and "scout" not in sim.s.tech, "high-store route pays the normal era fee"): return
+ await read_discoveries()
+ s = sim.s
+ s.tech.append_array(["rotate","seed_vault"]); s.cells[34].level = 2; s.cells[39].rotation = true
+ s.rain = true; s.full = 2; s.rev += 1; game.refresh(true)
+ await tap("panel","era"); await tap("review_era"); await tap("advance",2)
+ if not check(sim.s.era == 3 and sim.s.food == 33 and "terrace" not in sim.s.tech, "crop rotation and storage reach modern era without terraces"): return
+ report("PASS two alternative era gates with real controls, food debits, and historical prerequisites absent")
 
 func run(main, out: String):
  game = main; sim = main.sim; folder = out
@@ -812,7 +843,7 @@ func run(main, out: String):
   if arg.begins_with("--difficulty-test="): difficulty = int(arg.trim_prefix("--difficulty-test="))
  picture = DisplayServer.get_name() != "headless"
  report("Native replay on " + DisplayServer.get_name() + " at " + str(DisplayServer.window_get_size()))
- if "--v115-ui" in OS.get_cmdline_user_args():
+ if "--research-routes" in OS.get_cmdline_user_args() or "--v115-ui" in OS.get_cmdline_user_args():
   await frames(10); await curriculum_campaign(); return
  if "--v110-rules" in OS.get_cmdline_user_args():
   v110_rules()

@@ -4,11 +4,11 @@ const V = preload("res://valley.gd")
 
 var folder = "user://"
 var checkpoint = {}
-var previous_folder = ""
+var previous_folders = []
 
 func use_version_folder(previous: String = "user://"):
- previous_folder = previous
- folder = previous.path_join("v1.15") + "/"
+ previous_folders = [previous.path_join("v1.15") + "/", previous]
+ folder = previous.path_join("research-preview") + "/"
  DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
 
 func put(slot: String, state: Dictionary) -> bool:
@@ -32,9 +32,9 @@ func put(slot: String, state: Dictionary) -> bool:
 func read(slot: String) -> Dictionary:
  if slot == "chapter" and not checkpoint.is_empty(): return checkpoint.duplicate(true)
  var locations = [folder]
- # Continue an older campaign in a separate directory. A later V1.10 launch can still read its original save.
- if previous_folder != "" and slot in ["campaign", "chapter"] and not FileAccess.file_exists(folder + slot + ".bin") and not FileAccess.file_exists(folder + slot + ".bin.bak"):
-  locations.append(previous_folder)
+ # Follow the latest available main campaign; preview writes always use their own slot.
+ if not previous_folders.is_empty() and slot in ["campaign", "chapter"] and not FileAccess.file_exists(folder + slot + ".bin") and not FileAccess.file_exists(folder + slot + ".bin.bak"):
+  locations.append_array(previous_folders)
  for location in locations:
   for suffix in["", ".bak"]:
    var path = location + slot + ".bin" + suffix
@@ -53,8 +53,8 @@ func read(slot: String) -> Dictionary:
  return {}
 
 func valid(state: Variant) -> bool:
- if not state is Dictionary or not state.get("version", 0) in[1, 2, 3, 4, 5, 6, 7]: return false
- if state.version == 7:
+ if not state is Dictionary or not state.get("version", 0) in[1, 2, 3, 4, 5, 6, 7, 8]: return false
+ if state.version >= 7:
   var record = state.get("research_record")
   if not record is Dictionary or not record.get("focus") in [""] + preload("res://curriculum.gd").TRACKS: return false
   if not record.get("observations") is int or not record.get("terms") is int or not record.get("hazards") is Array: return false

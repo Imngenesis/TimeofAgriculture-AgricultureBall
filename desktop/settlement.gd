@@ -10,7 +10,7 @@ const STORE_STORAGE = 36
 const LESSON = 18
 const C = preload("res://crop_book.gd")
 const ERA_FOOD = [12, 20, 32, 0]
-const CORE = [["seed", "dry"], ["dike", "scout"], ["terrace", "rotate"], ["machine", "precise"]]
+const Curriculum = preload("res://curriculum.gd")
 
 static func working(c: Dictionary) -> bool:
  return c.kind != "" and c.project == "" and not c.flood and c.condition >= WORKING_CONDITION and(c.kind not in["farm", "house", "store", "canal", "nursery", "station", "wood", "stone", "pasture", "engineering"] or c.get("connected", false))
@@ -36,7 +36,7 @@ static func total_level(s: Dictionary, kind: String) -> int:
  return levels
 
 static func lesson_time(s: Dictionary) -> int:
- return 15 if "apprentice" in s.tech else LESSON
+ return 15 if "field_trials" in s.tech else LESSON
 
 static func beds(s: Dictionary) -> int:
  return CAMP_BEDS + HOUSE_BEDS * total_level(s, "house")
@@ -49,7 +49,7 @@ static func store_levels(s: Dictionary, zone: int) -> int:
 
 static func storage(s: Dictionary, zone: int = 0) -> int:
  var baseline = CAMP_STORAGE if zone == 0 else 24
- return baseline + (STORE_STORAGE + (8 if "granary_vent" in s.tech else 0)) * store_levels(s, zone)
+ return baseline + (STORE_STORAGE + (8 if "seed_vault" in s.tech else 0)) * store_levels(s, zone)
 
 static func seed_space(s: Dictionary, zone: int) -> int:
  var plots = 0
@@ -129,5 +129,11 @@ static func requirements(game) -> Dictionary:
   structures.append([farms.size() >= 3 and not facilities(s, "store").is_empty(), "3 块投产农田和 1 座通路粮仓"])
   survival.append([s.pop >= 12, "营地至少 12 名居民"])
  var techs = []
- for key in CORE[s.era]: techs.append([s.tech.has(key), game.tech_name(key)])
+ var paths = Curriculum.ROUTES.data.eras[s.era]
+ if paths.size() == 1:
+  for key in paths[0].tech: techs.append([key in s.tech, game.tech_name(key)])
+ else:
+  var names = []
+  for path in paths: names.append(path.name)
+  techs.append([Curriculum.any_met(game, paths), "达成一条农学路线（" + " / ".join(names) + "）"])
  return {"建设": structures, "科技": techs, "生存": survival}

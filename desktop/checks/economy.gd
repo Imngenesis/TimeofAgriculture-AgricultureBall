@@ -147,12 +147,19 @@ func legacy(path: String, output: String):
  source.folder = path.get_base_dir() + "/"
  var sha = FileAccess.get_sha256(path)
  var old = source.read(path.get_file().get_basename())
- if not expect(old.get("version", 0) in[1, 2, 3, 4, 5, 6], "read an earlier release save"): return
+ if not expect(old.get("version", 0) in[1, 2, 3, 4, 5, 6, 7], "read an earlier release save"): return
  var m = Model.new()
  m.restore(old.duplicate(true))
- for key in["turn", "era", "clock", "food", "seed", "tech", "study", "study_time", "science", "workers", "pending", "policy"]:
+ for key in["turn", "era", "clock", "food", "seed", "science", "workers", "pending", "policy"]:
   expect(m.s[key] == old[key], "old save preserves " + key)
- expect(m.s.version == 7 and m.s.difficulty == old.get("difficulty", 1) and m.s.cells.size() == 180 and m.s.cells[0].has("condition"), "legacy campaign expands into the standard economy")
+ var expected = []
+ for id in old.tech:
+  var current = Model.Study.Curriculum.MERGED.get(id, id)
+  if current not in expected: expected.append(current)
+ var active = Model.Study.Curriculum.MERGED.get(old.study, old.study)
+ var redundant = active != "" and active in expected
+ expect(m.s.tech == expected and m.s.study == ("" if redundant else active) and m.s.study_time == (0 if redundant else old.study_time), "old research maps to paid canonical courses")
+ expect(m.s.version == 8 and m.s.difficulty == old.get("difficulty", 1) and m.s.cells.size() == 180 and m.s.cells[0].has("condition"), "legacy campaign expands into the standard economy")
  for i in old.cells.size():
   if old.cells[i].kind != "" or old.cells[i].project != "":
    expect(old.cells[i].kind == m.s.cells[i].kind and old.cells[i].project == m.s.cells[i].project, "existing sites retain IDs")

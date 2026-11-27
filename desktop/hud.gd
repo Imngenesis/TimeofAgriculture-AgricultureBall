@@ -14,7 +14,9 @@ var build_category = "全部"
 var archive_tab = "发现记录"
 var archive_era = 0
 var reading_key = ""
-var tech_branch = "稻"
+var tech_branch = "全部"
+var tech_source = ""
+var tech_ready = false
 var tech_key = "seed"
 var tech_era = 0
 var proposed_focus = ""
@@ -112,7 +114,7 @@ func menu(has_save: bool):
  var settings = btn("游戏设置", "settings"); settings.custom_minimum_size = Vector2(209, 38); controls.add_child(settings)
  if not OS.has_feature("web"):
   var leave = btn("退出游戏", "quit"); leave.custom_minimum_size = Vector2(209, 38); controls.add_child(leave)
- var signature = U.label("百谷长青  ·  V1.15", 13, U.DIM)
+ var signature = U.label("百谷长青  ·  科技树整合试玩版", 13, U.DIM)
  stage.add_child(signature); U.rect(signature, 0, 1, 0, 1, Rect2i(80, -53, 412, -30))
  var river = U.box(false, 7)
  stage.add_child(river); U.rect(river, 1, 1, 1, 1, Rect2i(-190, -56, -30, -28))
@@ -121,7 +123,7 @@ func menu(has_save: bool):
 func game_view():
  mode = "game"
  atlas_crop = S.F.START[sim.s.frontier.region]
- tech_branch = atlas_crop; tech_key = "seed"; tech_era = sim.s.era; proposed_focus = ""
+ tech_branch = "全部"; tech_source = ""; tech_ready = false; tech_key = "seed"; tech_era = sim.s.era; proposed_focus = ""
  frontier_tab = "种圃"
  build_category = "全部"; archive_era = sim.s.era
  freight_from = 0
@@ -342,9 +344,9 @@ func rebuild_details(force: bool = false):
  var tag = "%s:%d:%s:%s:%s:%s:%s:%s:%s:%s:%s" % [panel_key, id, game.edge_job, s.rev, s.turn, s.tech, s.study, s.science, s.food >= 4, game.world.risk, sim.free_workers()]
  var ac = sim.academy_id()
  if ac >= 0: tag += ":%d" % s.cells[ac].notes
- if panel_key == "study": tag += ":%s:%s:%d:%s:%d:%d" % [tech_branch, tech_key, tech_era, s.research_record.focus, s.study_time, s.research_record.observations]
+ if panel_key == "study": tag += ":%s:%s:%d:%s:%d:%d" % [tech_branch + tech_source + str(tech_ready), tech_key, tech_era, s.research_record.focus, s.study_time, s.research_record.observations]
  if panel_key in["era", "crew", "build", "economy", "transfer", "frontier", "study"] or id >= 0: tag += ":%d:%d:%d:%d" % [s.food, s.seed, s.wood, s.stone]
- if panel_key in["crew", "transfer"] or id >= 0:
+ if panel_key in["crew", "transfer","study","era"] or id >= 0:
   var walking = 0
   for worker in s.workers:
    if worker.job != "" and worker.travel > 0: walking += 1
@@ -352,6 +354,10 @@ func rebuild_details(force: bool = false):
  if force or tag != drawn:
   var old_scroll = 0
   var site_scroll = 0
+  var index_scroll = -1
+  if panel_key == "study" and is_instance_valid(drawer) and drawer.get_meta("filter","") == study_filter():
+   var list = drawer.find_child("IndexScroll", true, false)
+   if list: index_scroll = list.scroll_vertical
   if is_instance_valid(drawer) and drawer.get_meta("section", "") == panel_key and drawer.get_meta("tab", "") == detail_tab():
    var last = drawer.find_child("ContentScroll", true, false)
    if last: old_scroll = last.scroll_vertical
@@ -364,7 +370,10 @@ func rebuild_details(force: bool = false):
   clear_detail(drawer); drawer = null
   if panel_key != "":
    make_drawer()
-   if old_scroll > 0: drawer.find_child("ContentScroll", true, false).set_deferred("scroll_vertical", old_scroll)
+   var content_scroll = drawer.find_child("ContentScroll", true, false)
+   if old_scroll > 0 and content_scroll: content_scroll.set_deferred("scroll_vertical", old_scroll)
+   var list = drawer.find_child("IndexScroll", true, false)
+   if index_scroll >= 0 and list: list.set_deferred("scroll_vertical", index_scroll)
   if id >= 0 and panel_key == "":
    make_inspector(id)
    if site_scroll > 0: side.find_child("SiteScroll", true, false).set_deferred("scroll_vertical", site_scroll)
@@ -489,7 +498,7 @@ func make_inspector(id: int):
   if shortfall > 0: v.add_child(btn("封存本田缺少的 %d 份种粮" % shortfall, "field_seed", id, true))
   for variant in s.frontier.varieties.get(next[0], {}):
    if variant != next[1]: v.add_child(btn("改种" + S.F.Crops.cultivar_title(next[0], variant), "frontier_action", ["sow", [id, next[0], variant]]))
-  if S.F.Farm.Yards.manure_source(s, id) >= 0: Atlas.action(self, v, "施 1 厩肥 · 地力 +%d" % (14 if "manure_cycle" in s.tech else 10), "manure", id)
+  if S.F.Farm.Yards.manure_source(s, id) >= 0: Atlas.action(self, v, "施 1 厩肥 · 地力 +%d" % (14 if "straw_return" in s.tech else 10), "manure", id)
  if s.frontier.yards.has(id): Atlas.yard_actions(self, v, id)
  if c.kind == "academy" and c.project == "":
   var course = "university" if c.get("campus", "") == "agronomy" else "agcollege"
@@ -529,20 +538,28 @@ func make_inspector(id: int):
    var why = sim.build_reason(key, id)
    b.disabled = why != ""; b.tooltip_text = why; v.add_child(b)
 
+func study_filter() -> String:
+ return "%s/%d/%s/%s" % [tech_branch, tech_era, tech_source, tech_ready]
+
 func detail_tab() -> String:
- if panel_key == "study": return tech_branch + str(tech_era) + tech_key
+ if panel_key == "study": return study_filter() + tech_key
  if panel_key == "frontier": return frontier_tab
  if panel_key == "economy": return economy_tab
  return ""
 
 func make_drawer():
- var w = 936 if panel_key == "study" else 728 if panel_key == "frontier" else(632 if panel_key in["crew", "economy", "transfer"] else 594)
- drawer = U.panel(stage, 0.5, 0.5, 0.5, 0.5, Rect2i(- w / 2, -245, w / 2, 231), U.PANEL)
+ var w = 1024 if panel_key == "study" else 728 if panel_key == "frontier" else(632 if panel_key in["crew", "economy", "transfer"] else 594)
+ var bounds = Rect2i(-w/2,-282,w/2,279) if panel_key == "study" else Rect2i(-w/2,-245,w/2,231)
+ drawer = U.panel(stage, 0.5, 0.5, 0.5, 0.5, bounds, U.PANEL)
  drawer.set_meta("section", panel_key)
  drawer.set_meta("tab", detail_tab())
  var frame = U.box(true, 8); U.inset(drawer, 15).add_child(frame)
  var titles = {"weather": "河谷气象台", "archive": "农耕文化志", "frontier": "农庄与拓殖地", "build": "农业建设", "study": "农学手册", "crew": "人力总览", "economy": "资源与收支", "transfer": "跨岗调配", "risk": "河谷灾情", "log": "农事簿", "era": "时代建设与晋阶"}
  row_header(frame, titles[panel_key] + ("　·　" + S.F.REGIONS[sim.s.frontier.region] if panel_key == "frontier" else ""), "closepanel"); frame.add_child(U.rule())
+ if panel_key == "study":
+  Research.draw(self, frame)
+  drawer.set_meta("filter", study_filter()); drawer.set_meta("tab", detail_tab())
+  return
  if panel_key == "frontier": Atlas.tabs(self, frame)
  var scroll = ScrollContainer.new(); scroll.name = "ContentScroll"; scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL; frame.add_child(scroll)
  var content = U.box(true, 7); content.size_flags_horizontal = Control.SIZE_EXPAND_FILL; scroll.add_child(content)
@@ -551,7 +568,6 @@ func make_drawer():
   "build": SeasonUI.projects(self, content)
   "weather": SeasonUI.forecast(self, content)
   "archive": SeasonUI.archive(self, content)
-  "study": Research.draw(self, content)
   "crew": Management.workforce(self, content)
   "transfer": Management.transfers(self, content)
   "economy": Management.balance(self, content)
@@ -572,6 +588,12 @@ func make_drawer():
    if s.era < 3: content.add_child(U.label(era_forecast(), 15, U.GOLD, true))
    var groups = T.requirements(sim)
    for group in groups:
+    if group == "科技" and T.Curriculum.ROUTES.data.eras[s.era].size() > 1:
+     content.add_child(U.label("科技条件 · 任选一路", 15, U.GOLD))
+     for path in T.Curriculum.ROUTES.data.eras[s.era]:
+      var ready = T.Curriculum.path_met(sim, path)
+      content.add_child(U.label(("✓ " if ready else "◇ ") + path.name + "　" + T.Curriculum.requirements_text(sim, path), 14, U.GREEN if ready else U.TEXT, true))
+     continue
     content.add_child(U.label(group + "条件", 15, U.GOLD))
     for goal in groups[group]:
      content.add_child(U.label(("✓  " if goal[0] else "◇  ") + goal[1], 14, U.GREEN if goal[0] else U.TEXT, true))
@@ -602,6 +624,8 @@ func dialog(kind: String):
  modal.color = Color(0.035, 0.065, 0.047, 0.55)
  stage.add_child(modal); modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
  modal.mouse_filter = Control.MOUSE_FILTER_STOP
+ if kind == "tech_context_menu":
+  Research.source_sheet(self, modal); return
  if kind == "tech_map":
   Research.MapView.show(self, modal)
   return

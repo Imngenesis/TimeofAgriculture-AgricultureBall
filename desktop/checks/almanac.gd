@@ -51,7 +51,7 @@ func research_economy():
  s.era = 2; s.tech.append("wheat_1")
  verify(m.research_reason("wheat_2").contains("驯化"), "the second crop technique needs a domesticated line")
  s.frontier.lines["麦"] = C.line(); C.profiles(s)
- verify(m.research_reason("wheat_2").contains("耧车"), "wheat and rice use different prerequisites")
+ verify(m.research_check("wheat_2")[0] == "待择径" and "drill" in A.Curriculum.parents("wheat_2",m.techs.wheat_2), "wheat and rice use different prerequisites")
  s.seed = T.seed_space(s, 0); s.food = 300
  verify(m.reserve(false) != "" and s.food == 300, "warehouses cannot turn excess food into unlimited banked seed")
  s.wood = T.material_space(s, 0, "wood")

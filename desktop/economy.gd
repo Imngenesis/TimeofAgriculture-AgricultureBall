@@ -104,7 +104,7 @@ static func trade_price(s: Dictionary, buy: bool) -> int:
 
 static func trade_reason(s: Dictionary, kind: String, buy: bool) -> String:
  if kind == "feed" and not buy:
-  if "cash_crops" not in s.tech: return "先研习农产集售"
+  if "market_trade" not in s.tech: return "先研习农产集市"
   if s.frontier.feed < 4: return "营地饲料不足 4 份"
   return ""
  if not LOT.has(kind): return "未知货物"

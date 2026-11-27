@@ -87,7 +87,7 @@ static func route(s: Dictionary, a: int, b: int) -> Dictionary:
   for place in s.districts:
    if place not in[a, b] and anchor(s, place) == tile: stops.append(place)
  var seconds = travel_time(line, paved)
- if "long_distance_trade" in s.tech: seconds = maxi(1, ceili(seconds * 0.75))
+ if "trade_routes" in s.tech: seconds = maxi(1, ceili(seconds * 0.75))
  var capacity = 4
  if paved:
   capacity = 8 + (2 if "trade_routes" in s.tech else 0) + (4 if "harvest_network" in s.tech else 0)

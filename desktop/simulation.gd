@@ -20,11 +20,11 @@ const TECH = {
  "dry": ["谷物晾晒", 0, 2, [], "解锁粮仓。建仓后的第一个收获季会引来谷鸟。"],
  "dike": ["圩堤排水", 1, 3, ["seed"], "解锁田堤与灌渠。新渠第一次灌到在田作物时会出现草害。"],
  "scout": ["田间巡查", 1, 2, ["seed"], "解锁巡田。提前护住下一次可能染病的作物。"],
- "terrace": ["等高筑田", 2, 4, ["dike"], "解锁梯田。阶坎减缓冲刷，完工时补充地力。"],
+ "terrace": ["等高筑田", 2, 4, [], "解锁梯田。阶坎减缓冲刷，完工时补充地力。"],
  "rotate": ["谷豆轮作", 2, 4, ["seed"], "解锁轮作。每季恢复地力，梅雨时保护表土。"],
  "nursery": ["集中育秧", 2, 3, ["seed"], "选修。公共秧圃覆盖田增产 4 份，首次在田使用会出现作物病情预警。"],
- "machine": ["机械耕作", 3, 5, ["seed"], "解锁农机站。服务范围内的农田增产 5 份。"],
- "precise": ["测土配肥", 3, 5, ["terrace", "rotate"], "解锁精准配肥与净水沟，控制尾水排放。"],
+ "machine": ["机械耕作", 3, 5, [], "解锁农机站。服务范围内的农田增产 5 份。"],
+ "precise": ["测土配肥", 3, 5, [], "解锁精准配肥与净水沟，控制尾水排放。"],
  "fertilizer": ["化肥增产", 3, 3, ["rotate", "terrace"], "选修。田块首次启用高投入施肥会触发尾水预警，每茬增产 6 份，也会积累污染。"]
 }
 
@@ -84,7 +84,7 @@ func reset(difficulty: int = 1, region: int = 0):
  for id in V.COLS * V.ROWS:
   cells.append(new_cell(id))
  cells[camp].kind = "camp"
- s = {"version": 7, "research_record": Study.Curriculum.new_record(), "streets": {}, "lesson_step": 0, "lesson_hidden": false, "turn": 0, "clock": 0, "time": 0, "era": 0, "age": 0, "food": profile.food, "seed": 0,
+ s = {"version": 8, "research_record": Study.Curriculum.new_record(), "streets": {}, "lesson_step": 0, "lesson_hidden": false, "turn": 0, "clock": 0, "time": 0, "era": 0, "age": 0, "food": profile.food, "seed": 0,
   "difficulty": difficulty, "wood": profile.wood, "stone": profile.stone, "budget": 1, "efficiency": 100, "districts": [0], "history": [],
   "pop": 10, "science": 0, "tech": [], "study": "", "study_time": 0, "cells": cells, "edges": {},
   "workers": [], "water": [0, 0, 0], "full": 0, "empty": 0, "pending": "", "policy": {},
@@ -170,6 +170,9 @@ func restore(state: Dictionary):
  if s.version == 6:
   Study.Curriculum.migrate(s)
   s.version = 7
+ if s.version == 7:
+  Study.Curriculum.integrate_save(s)
+  s.version = 8
  Roads.rebuild(s)
  events.clear()
 
@@ -256,32 +259,41 @@ func location_name(id: int) -> String:
  if E.DEPOTS.has(c.kind): return E.DEPOTS[c.kind]
  return LAND[V.tier(id)]
 
-func research_reason(id: String) -> String:
- if not techs.has(id): return "未知农学"
+func research_check(id: String) -> Array:
+ if not techs.has(id): return ["未知课题", "未知农学"]
  var t = techs[id]
+ if id in s.tech: return ["已掌握", "已掌握"]
+ if id == s.study: return ["在研", "正在研习" + tech_name(id)]
  var crop = Study.subject(id)
- if crop != "" and not Study.discovered(s, crop): return "先取得" + F.Crops.title(crop) + "种源"
- if crop != "" and t[1] > 0 and not s.frontier.lines.has(crop): return "先在种圃完成驯化"
- if s.tech.has(id): return "已掌握"
- if s.study != "": return "正在研习" + tech_name(s.study)
- if s.era < t[1]: return "在" + ERAS[t[1]] + "开放"
+ if crop != "" and not Study.discovered(s, crop): return ["缺种源", "先取得" + F.Crops.title(crop) + "种源"]
+ if not Study.Curriculum.eligible_region(s, id): return ["地域限定", "仅在" + F.REGIONS[int(Study.Curriculum.TOPICS.data[id].region)] + "开展"]
+ if s.era < t[1]: return ["未到时代", "在" + ERAS[t[1]] + "开放"]
+ if crop != "" and t[1] > 0 and not s.frontier.lines.has(crop): return ["待驯化", "先在种圃完成驯化"]
  var missing = []
  for pre in t[3]:
-  if not s.tech.has(pre): missing.append(tech_name(pre))
- if not missing.is_empty(): return "先掌握" + "、".join(missing)
- if not Study.Curriculum.eligible_region(s, id): return "仅在" + F.REGIONS[int(Study.Curriculum.TOPICS.data[id].region)] + "开展"
+  if pre not in s.tech: missing.append(tech_name(pre))
+ if not missing.is_empty(): return ["缺前置", "先掌握" + "、".join(missing)]
+ var paths = Study.Curriculum.paths(id)
+ if not Study.Curriculum.any_met(self, paths):
+  var names = []
+  for path in paths: names.append(path.name)
+  return ["待择径", "任选一路达成：" + " / ".join(names)]
  var hazard = Study.Curriculum.TOPICS.data.get(id, {}).get("event", "")
- if hazard != "" and hazard not in s.research_record.hazards: return "需要有一次" + hazard + "结算记录"
- if Study.Curriculum.terms(id) > 0 and Town.facilities(s, "farm").is_empty(): return "田间验证需要至少一块通路且可用的农田"
+ if hazard != "" and hazard not in s.research_record.hazards: return ["待实践", "需要有一次" + hazard + "结算记录"]
+ if Study.Curriculum.terms(id) > 0 and Town.facilities(s, "farm").is_empty(): return ["待实践", "田间验证需要至少一块通路且可用的农田"]
+ if s.study != "": return ["待排期", "正在研习" + tech_name(s.study)]
+ if Town.facilities(s, "academy").is_empty(): return ["缺农专", "需有一所正常运作的农专"]
  var fee = Study.notes(s, id, t)
- if s.science < fee: return "还差 %d 点札记，请到农专领取" % (fee - s.science)
- if Town.facilities(s, "academy").is_empty(): return "需有一所正常运作的农专"
+ if s.science < fee: return ["待领札记", "还差 %d 点札记，请到农专领取" % (fee - s.science)]
  var cost = Study.bill(s, id, t)
  var lacks = []
  for i in 4:
-  var resource = ["food", "seed", "wood", "stone"] [i]
+  var resource = ["food", "seed", "wood", "stone"][i]
   if s[resource] < cost[i]: lacks.append("%s还差 %d" % [F.LABEL[resource], cost[i] - s[resource]])
- return "、".join(lacks)
+ return ["待备料", "、".join(lacks)] if not lacks.is_empty() else ["可研习", ""]
+
+func research_reason(id: String) -> String:
+ return research_check(id)[1]
 
 func tech_name(id: String) -> String:
  return Study.title(s, id, techs)
@@ -863,7 +875,7 @@ func work():
     s.rev += 1
    if c.crop:
     var care = hands + int("plough" in s.tech) + int(Study.Curriculum.focused(s, "耕作"))
-    if hands == 1 and "large_field_management" in s.tech: care += 1
+    if hands == 1 and "deep_plowing" in s.tech: care += 1
     c.care = mini(100, c.care + care)
   elif i == s.frontier.home and s.policy.get("flood", "") == "move" and s.flood_at < 0:
    s.evacuated += hands

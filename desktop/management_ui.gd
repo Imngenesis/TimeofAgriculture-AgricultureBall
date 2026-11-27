@@ -124,7 +124,7 @@ static func market(h, v):
   sell.tooltip_text = E.trade_reason(s, k, false); sell.disabled = sell.tooltip_text != ""
   for b in[buy, sell]: b.size_flags_horizontal = Control.SIZE_EXPAND_FILL; trades.add_child(b)
  v.add_child(U.rule())
- if "cash_crops" in s.tech:
+ if "market_trade" in s.tech:
   var sell_feed = h.btn("集售 4 饲料 · 换 2 粮（现有 %d 饲料）" % s.frontier.feed, "trade", ["feed", false])
   sell_feed.tooltip_text = E.trade_reason(s, "feed", false)
   sell_feed.disabled = sell_feed.tooltip_text != ""

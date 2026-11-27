@@ -168,7 +168,7 @@ static func yard_actions(h, v, id: int):
  var why = F.Farm.Yards.status(s, id)
  v.add_child(U.label(why if why != "" else "牧工已到岗", 15, U.WARN if why != "" else U.GREEN))
  v.add_child(U.label("栏位 %d / %d　当地饲料 %d　厩肥 %d" % [y.hens + y.goats + y.broods.size(), F.Farm.Yards.capacity(s, id), feed, y.manure], 14, U.TEXT, true))
- v.add_child(U.label("粮仓距此两格内可多存 4 蛋。两格内的同区农田可用厩肥恢复 %d 地力。" % (14 if "manure_cycle" in s.tech else 10), 13, U.DIM, true))
+ v.add_child(U.label("粮仓距此两格内可多存 4 蛋。两格内的同区农田可用厩肥恢复 %d 地力。" % (14 if "straw_return" in s.tech else 10), 13, U.DIM, true))
  if F.Farm.Yards.store_near(s, id): v.add_child(U.label("已获附近粮仓的蛋品仓位", 13, U.GREEN))
  action(h, v, "制备 4 饲料 · 2 粮", "feed", [id])
  for species in["hens", "goats"]:
