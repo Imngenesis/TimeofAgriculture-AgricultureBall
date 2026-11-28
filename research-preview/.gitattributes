@@ -1,0 +1,3 @@
+# Ship the supplied static files and legal notices byte-for-byte.
+index.* -text
+licenses/*.txt -text
