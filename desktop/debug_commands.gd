@@ -110,8 +110,11 @@ static func projects(m, argument: String, cell: int, edge: String) -> Dictionary
 static func incident(m, argument: String, cell: int) -> Dictionary:
 	var s = m.s
 	if argument == "":
-		return reply(true, "灾害 · drought 旱灾 / storm 暴雨冲刷 / wind 风灾 / frost 霜冻\n农情 · flood 夏汛 / rain 梅雨 / runoff 尾水 / blight 病害 / birds 鸟害 / weeds 草害\n用 event 晴 等当前天气名模拟气候变化，或用 event shortage 演练缺粮弹窗。")
+		return reply(true, "灾害 · drought 旱灾 / storm 暴雨冲刷 / wind 风灾 / frost 霜冻\n农情 · flood 夏汛 / rain 梅雨 / runoff 尾水 / blight 病害 / birds 鸟害 / weeds 草害\n农事议决 · E01 芦滩火耕 / E02 无芒早稻 / E03 河湾浮藻\n用 event 晴 等当前天气名模拟气候变化，或用 event shortage 演练缺粮弹窗。")
 	var key = argument.to_lower()
+	if key.to_upper() in m.FieldEvents.IDS:
+		var why = m.FieldEvents.offer(m,key.to_upper())
+		return reply(why == "", "已发起农事议决演练。" if why == "" else why)
 	if key in ["shortage", "缺粮", "口粮不足"]:
 		m.queue_incident("当季口粮供应不足", "本次为调试演练。请确认这一条缺粮事件。", "food")
 		return reply(true, "已触发缺粮事件演练。")

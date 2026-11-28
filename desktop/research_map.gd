@@ -6,7 +6,9 @@ const C = preload("res://crop_book.gd")
 const CUR = preload("res://curriculum.gd")
 const LANES = ["作物与育种", "耕作与农具", "水土与防灾", "仓储与贸易", "农业组织"]
 const AGES = ["原始采集", "早期农耕", "传统农耕", "现代农业"]
-const GAP = Vector2(306, 77)
+const H = preload("res://handbook_style.gd")
+const LANE_COLORS = [Color("#bed29a"),Color("#dec18b"),Color("#90c7c5"),Color("#dcae92"),Color("#abb6db")]
+const GAP = Vector2(263, 77)
 const REQUIRED = Color("#668274")
 const ALTERNATIVE = Color("#92adcb")
 const SUPPORT = Color("#89cfc6")
@@ -131,7 +133,9 @@ func setup(h, target: String = "", crop: String = ""):
 	local_view = h.research_camera.get("local", false)
 
 	var head = U.box(false, 10);add_child(head)
-	head.add_child(h.title_label("农学科技树", 29))
+	head.add_child(U.icon("study",34,U.GOLD))
+	head.add_child(h.title_label("农学科技树",29))
+	head.add_child(U.label(C.REGIONS[model.s.frontier.region] + "　/　" + model.ERAS[model.s.era],14,U.DIM))
 	head.add_child(U.space())
 	bank = U.label("", 14, U.GOLD);head.add_child(bank)
 	academy = h.btn("前往农专", "academy");head.add_child(academy)
@@ -142,8 +146,8 @@ func setup(h, target: String = "", crop: String = ""):
 	var body = U.box(false, 13)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL;add_child(body)
 	var sheet = PanelContainer.new()
-	sheet.custom_minimum_size.x = 306
-	sheet.add_theme_stylebox_override("panel", U.style(Color("#142722"), Color("#38554b"), 1, 5))
+	sheet.custom_minimum_size.x = 326
+	sheet.add_theme_stylebox_override("panel", U.style(H.PAPER,Color("#aa986c"),1,5))
 	body.add_child(sheet)
 	var left = U.box(true, 8);U.inset(sheet, 12).add_child(left)
 	topic_scroll = ScrollContainer.new()
@@ -155,9 +159,9 @@ func setup(h, target: String = "", crop: String = ""):
 	left.add_child(selected_action)
 	left.add_child(U.rule())
 	var footer = U.box(false, 6);left.add_child(footer)
-	footer.add_child(U.label("当前研习", 13, U.DIM));footer.add_child(U.space())
+	footer.add_child(U.label("当前研习", 14,H.MUTED));footer.add_child(U.space())
 	active = h.btn("定位在研", "locate_study");active.disabled = true;footer.add_child(active)
-	study_status = U.label("", 14, U.GREEN, true);left.add_child(study_status)
+	study_status = U.label("",14,H.JADE,true);left.add_child(study_status)
 	study_progress = ProgressBar.new()
 	study_progress.show_percentage = false
 	study_progress.custom_minimum_size.y = 5
@@ -169,7 +173,7 @@ func setup(h, target: String = "", crop: String = ""):
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL;body.add_child(right)
 	var ages = U.box(false, 6);right.add_child(ages)
 	for era in AGES.size():
-		var b = h.btn(model.ROMAN[era] + "　" + AGES[era], "map_era", era, era == model.s.era)
+		var b = H.tab(h,model.ROMAN[era] + "　" + AGES[era],"map_era",era,era == model.s.era,U.GOLD)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.tooltip_text = model.ERAS[era];ages.add_child(b)
 	var tools = U.box(false, 6);right.add_child(tools)
@@ -180,7 +184,7 @@ func setup(h, target: String = "", crop: String = ""):
 	update_filters()
 	filter_menu.item_selected.connect(change_branch)
 	tools.add_child(filter_menu)
-	scope = U.button("", toggle_scope);tools.add_child(scope)
+	scope = U.button("", toggle_scope); scope.set_meta("command","map_scope"); tools.add_child(scope)
 	search = LineEdit.new()
 	search.name = "ResearchSearch"
 	search.placeholder_text = "搜索课题"
@@ -210,7 +214,7 @@ func setup(h, target: String = "", crop: String = ""):
 	graph.zoom_min = 0.5
 	graph.zoom_max = 1.3
 	graph.zoom = h.research_camera.get("zoom", 1.0)
-	graph.add_theme_stylebox_override("panel", U.style(Color("#101f1c"), Color("#3b5a50"), 1, 4))
+	graph.add_theme_stylebox_override("panel", U.style(H.NIGHT,Color("#576d5f"),1,4))
 	graph.add_theme_color_override("activity", U.GOLD)
 	graph.size_flags_vertical = Control.SIZE_EXPAND_FILL;right.add_child(graph)
 	assist_lines = AssistLines.new()
@@ -337,7 +341,13 @@ func scroll_to_era(era: int):
 func center_at(key: String):
 	if not is_inside_tree() or not nodes.has(key): return
 	var node = nodes[key]
-	graph.scroll_offset = (node.position_offset + node.size * 0.5) * graph.zoom - graph.size * 0.5
+	var center = node.position_offset + node.size * 0.5
+	if local_view:
+		var bounds = Rect2(node.position_offset,node.size)
+		for card in nodes.values(): bounds = bounds.merge(Rect2(card.position_offset,card.size))
+		if bounds.size.x * graph.zoom < graph.size.x - 24: center.x = bounds.get_center().x
+		if bounds.size.y * graph.zoom < graph.size.y - 50: center.y = bounds.get_center().y - 12
+	graph.scroll_offset = center * graph.zoom - graph.size * 0.5
 
 func redraw():
 	displayed = []
@@ -363,7 +373,7 @@ func update_page():
 	study_status.text = "暂无在研课题" if not studying else U.wrap_text(model.tech_name(s.study) + "　" + model.study_status())
 	scope.text = "返回全树" if local_view else "本课脉络"
 	var keys = shown_topics()
-	if displayed != keys or era_lefts.is_empty(): draw_graph(keys)
+	if displayed != keys or (not local_view and era_lefts.is_empty()): draw_graph(keys)
 	var found = 0
 	for key in model.techs:
 		if visible_topic(model, key) and matches(key): found += 1
@@ -412,6 +422,15 @@ func draw_graph(keys: Array):
 	era_lefts.clear()
 	assists.clear()
 	focus_key = ""
+	if local_view:
+		draw_neighborhood(keys)
+	else:
+		draw_lanes(keys)
+	connect_topics(keys)
+	graph.scroll_offset = offset
+	assist_lines.queue_redraw()
+
+func draw_lanes(keys: Array):
 	var rank = {}
 	var widths = [1, 1, 1, 1]
 	var rows = {}
@@ -442,17 +461,33 @@ func draw_graph(keys: Array):
 		var era = model.techs[key][1]
 		var lane = LANES.find(lane_for(key))
 		add_topic(key, Vector2(era_lefts[era] + 13 + rank[key] * GAP.x, lane_top[lane] + 26 + rows[key] * GAP.y))
+
+func connect_topics(keys: Array):
 	for key in keys:
 		for group in R.prerequisites(model.techs, key):
 			var port = 1 if group.mode == "any" else 0
 			for pre in group.keys:
-				if not nodes.has(pre): continue
+				if not nodes.has(pre) or (local_view and hud.tech_key not in [pre,key]): continue
 				graph.connect_node(pre, 0, key, port)
 				connections.append([pre, key, port])
 		for pre in R.aids(key):
-			if nodes.has(pre): assists.append([pre, key])
-	graph.scroll_offset = offset
-	assist_lines.queue_redraw()
+			if nodes.has(pre) and (not local_view or hud.tech_key in [pre,key]): assists.append([pre,key])
+
+func draw_neighborhood(keys: Array):
+	var target = hud.tech_key
+	var before = parents(model,target) + R.aids(target)
+	var columns = [[],[target],[]]
+	for key in keys:
+		if key == target: continue
+		var column = 0 if key in before else 2
+		if key not in columns[column]: columns[column].append(key)
+	var height = maxi(columns[0].size(),maxi(1,columns[2].size()))
+	for i in 3:
+		if columns[i].is_empty(): continue
+		var x = (i-1)*GAP.x
+		var y = (height-columns[i].size()) * GAP.y / 2.0
+		add_lane_heading(["先修与辅助","当前课题","后续应用"][i],Vector2(x,y-31))
+		for j in columns[i].size(): add_topic(columns[i][j],Vector2(x,y+j*GAP.y))
 
 func add_era_frame(era: int, x: float, width: float, height: float):
 	var frame = GraphFrame.new()
@@ -487,7 +522,8 @@ func plain_node(pos: Vector2) -> GraphNode:
 
 func add_lane_heading(title: String, pos: Vector2):
 	var node = plain_node(pos)
-	var label = U.label(title, 14, U.GREEN);node.add_child(label)
+	var tint = LANE_COLORS[LANES.find(title)] if title in LANES else U.GOLD
+	var label = H.stamp(title,Color("#2b443a"),tint); node.add_child(label)
 
 func add_topic(key: String, pos: Vector2):
 	var node = plain_node(pos)
@@ -496,10 +532,16 @@ func add_topic(key: String, pos: Vector2):
 	var button = U.button("", func(): select_topic(key, false))
 	button.set_meta("command", "tech_node")
 	button.set_meta("arg", key)
-	button.custom_minimum_size = Vector2(221, 56)
+	button.custom_minimum_size = Vector2(214,58)
 	button.add_theme_font_size_override("font_size", 15)
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	node.add_child(button)
+	var title = U.label(model.tech_name(key),17,U.TEXT)
+	title.name = "TopicTitle"; button.add_child(title)
+	U.rect(title,0,0,1,0,Rect2i(12,4,-8,32))
+	var caption = U.label("",12,U.DIM); caption.name = "Caption"; button.add_child(caption)
+	U.rect(caption,0,0,1,1,Rect2i(12,31,-8,-2))
+	button.tooltip_text = model.tech_name(key)
 	node.set_slot(0, true, 0, REQUIRED, true, 0, REQUIRED)
 	if R.prerequisites(model.techs, key).any( func(group): return group.mode == "any"):
 		var anchor = Control.new()
@@ -521,10 +563,15 @@ func update_cards():
 		if node.get_meta("display", []) == signature: continue
 		node.set_meta("display", signature)
 		var kind = category(model, key)
-		button.text = "%s\n%s · %s · %d 札记" % [model.tech_name(key), kind[0], state[0], fee]
-		button.add_theme_color_override("font_color", state[1])
+		button.accessibility_name = model.tech_name(key) + "，" + state[0]
+		button.get_node("TopicTitle").add_theme_color_override("font_color",U.GOLD if selected else U.TEXT)
+		var caption = button.get_node("Caption")
+		caption.text = "%s　·　%s　·　%d 札记" % [kind[0],state[0],fee]
+		caption.add_theme_color_override("font_color",state[1])
 		var border = U.GOLD if selected or match_found else kind[2]
-		var surface = U.style(kind[1], border, 2 if selected else 1, 4)
+		var surface = U.style(Color("#4e4933") if selected else state[2],border,2 if (selected or match_found) else 1,4)
+		surface.border_width_left = 4
+		if not selected and not match_found: surface.border_color = LANE_COLORS[LANES.find(lane_for(key))].darkened(0.18)
 		surface.content_margin_left = 10
 		surface.content_margin_right = 8
 		button.add_theme_stylebox_override("normal", surface)

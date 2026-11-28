@@ -8,7 +8,7 @@ var previous_folder = ""
 
 func use_version_folder(previous: String = "user://"):
 	previous_folder = previous
-	folder = previous.path_join("v1.20") + "/"
+	folder = previous.path_join("v1.20.2") + "/"
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
 
 func put(slot: String, state: Dictionary) -> bool:
@@ -34,6 +34,7 @@ func read(slot: String) -> Dictionary:
 	var locations = [folder]
 
 	if previous_folder != "" and slot in ["campaign", "chapter"] and not FileAccess.file_exists(folder + slot + ".bin") and not FileAccess.file_exists(folder + slot + ".bin.bak"):
+		locations.append(previous_folder.path_join("v1.20") + "/")
 		locations.append(previous_folder.path_join("v1.19") + "/")
 		locations.append(previous_folder.path_join("v1.18") + "/")
 		locations.append(previous_folder.path_join("v1.17") + "/")
@@ -60,6 +61,10 @@ func read(slot: String) -> Dictionary:
 func valid(state: Variant) -> bool:
 	if not state is Dictionary or not state.get("version", 0) in [1, 2, 3, 4, 5, 6, 7, 8]: return false
 	if state.has("incidents") and not state.incidents is Array: return false
+	if state.has("field_events"):
+		if not preload("res://field_events.gd").valid(state.field_events): return false
+		var offers = state.get("incidents",[]).filter(func(item): return item is Dictionary and item.get("kind","") == "field_event")
+		if offers.size() != int(state.field_events.pending != ""): return false
 	if state.version >= 7:
 		var record = state.get("research_record")
 		if not record is Dictionary or not record.get("focus") in [""] + preload("res://curriculum.gd").TRACKS: return false

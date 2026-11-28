@@ -27,6 +27,6 @@ foreach ($name in "Godot-LICENSE.txt", "Godot-COPYRIGHT.txt", "NotoSansSC-OFL.tx
 }
 $quickStart = Join-Path $windows "试玩说明.txt"
 Copy-Item -LiteralPath (Join-Path $root "试玩说明.txt") -Destination $quickStart -Force
-$archive = Join-Path $dist "BaiguChangqing-research-preview-Windows-x64.zip"
+$archive = Join-Path $dist "BaiguChangqing-v1.20.2-Windows-x64.zip"
 Compress-Archive -LiteralPath @($output, $pack, $quickStart, $notices) -DestinationPath $archive -CompressionLevel Optimal -Force
 Get-Item -LiteralPath $archive | Select-Object FullName, Length

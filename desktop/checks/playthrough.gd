@@ -68,14 +68,17 @@ func click(pos: Vector2):
 		vp.push_input(event, true)
 
 func tap(cmd: String, arg = null):
-	if cmd not in ["guide_next", "guide_crop", "incident_confirm", "incident_defend"]: await read_discoveries()
+	if cmd not in ["guide_next", "guide_crop", "incident_confirm", "incident_defend","field_choice"]: await read_discoveries()
 	await press_control(cmd, arg)
 
 func read_discoveries():
 	while game.dialog_key in ["guide", "incident"] and not failed:
 		if game.dialog_key == "incident":
 			if not check(game.paused, "event pauses the clock"): return
-			await press_control("incident_confirm")
+			if sim.s.incidents.front().kind == "field_event":
+				var dispatch = sim.s.field_events.pending
+				await press_control("field_choice",[dispatch,0 if S.FieldEvents.shortfall(sim.s,dispatch,0) == "" else 1])
+			else: await press_control("incident_confirm")
 			continue
 		var entry = sim.s.guide.queue.front()
 		if not check(game.paused, "discovery pauses the campaign"): return
@@ -116,7 +119,7 @@ func ticks(count: int):
 		game.sim_step()
 		if sim.s.turn != prior_turn:
 			var b = sim.s.last_ledger
-			var spent = b.build + b.maintenance + b.advance + b.eat + b.loss + b.sow + b.spoil + b.operations + b.imports + b.recruit + b.land + b.husbandry + b.explore + b.freight_out + b.research
+			var spent = b.build + b.maintenance + b.advance + b.eat + b.loss + b.sow + b.spoil + b.operations + b.imports + b.recruit + b.land + b.husbandry + b.explore + b.freight_out + b.research + b.get("field_cost",0)
 			if not check(b.opening + b.gather + b.crop + b.refund + b.exports + b.freight_in + b.livestock + b.seed_gifts + b.get("debug_supply", 0) - spent == b.ending, "seasonal food ledger reconciles"): return
 			var recent = sim.s.history
 			if not check(recent.size() == mini(sim.s.turn, 8) and recent.back() == [sim.s.turn - 1, b.gather + b.crop + b.refund + b.exports + b.freight_in + b.livestock + b.seed_gifts + b.get("debug_supply", 0), spent], "eight-season chart matches settled accounts"): return
@@ -865,6 +868,56 @@ func curriculum_campaign():
 	report("PASS V1.18 research home, camera routing, dashed links, search, prices and saved research")
 	game.shutdown(0)
 
+func history_replay():
+	for i in 3:
+		var id = S.FieldEvents.IDS[i]
+		sim.reset(0,0)
+		var s = sim.s
+		s.era = i+1; s.turn = 4; s.food = 40; s.seed = 8; s.stone = 10; s.wood = 20
+		s.tech = ["seed","fertilizer"] if i == 2 else ["seed"]
+		s.cells[38].kind = "academy"
+		var plots = []
+		for tile in V.CORE_CELLS:
+			if plots.size() == 2: break
+			if V.tier(tile) != 0 or s.cells[tile].kind != "": continue
+			var farm = s.cells[tile]
+			farm.kind = "farm"; farm.crop = true; farm.fertilized = i == 2
+			plots.append(tile); S.Roads.inherit_path(s,38,tile)
+		S.Roads.rebuild(s); sim.assign("t38",1)
+		for worker in s.workers: worker.travel = 0
+		if i == 1:
+			for cursor in range(1,100):
+				s.weather.rng = cursor
+				if "暑热" in S.Weather.outlook(s): break
+		s.field_events.rng = 2
+		s.ledger = sim.book(s.food+s.seed,s.wood,s.stone)
+		S.Guide.discover(s)
+		game.start_game(s.duplicate(true)); await read_discoveries()
+		game.sim_step()
+		if not check(game.dialog_key == "incident" and game.paused and sim.s.field_events.pending == id,"authentic historical offer " + id): return
+		var snapshot = game.saves.read("campaign")
+		if not check(snapshot.field_events.pending == id and snapshot.incidents.front().kind == "field_event","unresolved event and FIFO are saved " + id): return
+		game.show_title(); await press_control("continue")
+		if not check(sim.s.field_events.pending == id and game.dialog_key == "incident","reload resumes decision " + id): return
+		await capture("event-"+id)
+		var pick = [1,0,1][i]
+		await press_control("field_choice",[id,pick])
+		await read_discoveries()
+		if not check(sim.s.field_events.records[id].choice == pick and sim.s.field_events.pending == "","choice finalized once " + id): return
+		await tap("panel","log"); await tap("field_record",id)
+		if not check(game.dialog_key == "field_record" and game.hud.find_button("field_choice",[id,0]) == null,"archived choices read only"): return
+		await capture("archive-"+id); await tap("back")
+	await tap("panel","study"); await choose_topic("combine")
+	await tap("map_scope")
+	var view = game.hud.research_view
+	if not check(view.local_view and view.graph.get_connection_list().size() > 0,"compact local diagram"): return
+	await capture("research-local")
+	await tap("read_entry","paper/combine/3")
+	if not check(game.dialog_key == "reading","supplied article opens from a research node"): return
+	await capture("research-reading"); await tap("back")
+	report("PASS three historical events, live choices, autosave/reload, archive, compact diagram and attributed article")
+	game.shutdown(0)
+
 func event_replay():
 	game.start_game()
 	await read_discoveries()
@@ -967,6 +1020,8 @@ func run(main, out: String):
 		await frames(10); await lesson_campaign(true);return
 	if "--console-test" in OS.get_cmdline_user_args():
 		await frames(10); await console_replay();return
+	if "--field-events-ui" in OS.get_cmdline_user_args():
+		await frames(8); await history_replay(); return
 	if "--events-test" in OS.get_cmdline_user_args():
 		await frames(10); await event_replay();return
 	if "--research-ui" in OS.get_cmdline_user_args():

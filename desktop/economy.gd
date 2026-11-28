@@ -94,7 +94,7 @@ static func settle(s: Dictionary):
 	if paid < due: s.organization = maxi(0, s.organization - 2)
 
 static func flows(b: Dictionary) -> Array:
-	return [b.gather + b.crop + b.refund + b.exports + b.get("freight_in", 0) + b.get("livestock", 0) + b.get("seed_gifts", 0) + b.get("debug_supply", 0), b.get("freight_out", 0) + b.get("husbandry", 0) + b.get("explore", 0) + b.get("research", 0) + b.eat + b.build + b.maintenance + b.sow + b.advance + b.loss + b.spoil + b.operations + b.imports + b.recruit + b.land]
+	return [b.gather + b.crop + b.refund + b.exports + b.get("freight_in", 0) + b.get("livestock", 0) + b.get("seed_gifts", 0) + b.get("debug_supply", 0), b.get("freight_out", 0) + b.get("husbandry", 0) + b.get("explore", 0) + b.get("research", 0) + b.get("field_cost",0) + b.eat + b.build + b.maintenance + b.sow + b.advance + b.loss + b.spoil + b.operations + b.imports + b.recruit + b.land]
 
 static func trade_price(s: Dictionary, buy: bool) -> int:
 	if buy: return 4 if "market_trade" in s.tech else 5

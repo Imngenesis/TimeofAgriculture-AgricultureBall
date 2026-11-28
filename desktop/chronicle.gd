@@ -51,6 +51,9 @@ static func entry(key: String) -> Dictionary:
  var part = key.split("/")
  var name = part[1]
  match part[0]:
+  "paper":
+   var page = preload("res://content/research_readings.json").data.entries[name]
+   return {"category":"课题原文","name":page.title,"body":page.body,"source":page.source,"plate":"era","index":clampi(int(part[2]),0,3)}
   "env":
    return {"category": "开局环境", "name": name, "body": authored("environments", name, "环境介绍"), "plate": "habitat", "index": Crops.REGIONS.find(name)}
   "era":

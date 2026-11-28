@@ -226,7 +226,9 @@ func command(cmd: String, arg = null):
 	if dialog_key == "practice_done" and cmd != "title": return
 	if dialog_key == "debug_console" and cmd not in ["debug_run", "back"]: return
 	if dialog_key == "incident":
-		if cmd not in ["incident_confirm", "incident_defend"]: return
+		if sim.s.incidents.front().kind == "field_event":
+			if cmd != "field_choice": return
+		elif cmd not in ["incident_confirm", "incident_defend"]: return
 	elif playing:
 		if sim.s.pending != "" and cmd != "decision": return
 		if sim.s.outcome != "" and cmd not in ["retry", "title", "quit", "practice", "back", "debug_run"]: return
@@ -247,6 +249,15 @@ func command(cmd: String, arg = null):
 				Model.Guide.discover(sim.s)
 				if sim.s.pending != "" or not sim.s.incidents.is_empty() or not sim.s.guide.queue.is_empty() or sim.s.outcome != "":
 					close_modal()
+		"field_choice":
+			if dialog_key != "incident" or not arg is Array or arg.size() != 2: return
+			result = Model.FieldEvents.apply(sim,str(arg[0]),int(arg[1]))
+			if result == "":
+				close_modal(); write_save("campaign")
+				hud.notify("已记入农事簿 · " + Model.FieldEvents.COPY.data[arg[0]].choices[arg[1]].name)
+		"field_record":
+			if not sim.s.field_events.records.has(arg): return
+			hud.reading_key = arg; modal("field_record")
 		"incident_confirm", "incident_defend":
 			if dialog_key != "incident": return
 			if cmd == "incident_defend":

@@ -44,6 +44,7 @@ static func folio(h, overlay: Control, key: String, inbox: bool):
 	var words = U.label(data.body, 18, INK, true)
 	words.add_theme_constant_override("line_spacing", 7)
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL;flow.add_child(words)
+	if data.has("source"): page.add_child(U.label("出处　" + data.source,13,MUTED,true))
 	if data.name in Book.Crops.CAU_CULTIVARS: page.add_child(U.label("育种单位　中国农业大学参与选育", 13, MUTED))
 	if key == "era/1" and h.sim.s.research_record.focus == "":
 		page.add_child(U.label("早期农耕已开放农专专精，按 T 打开科技树可选择方向。", 13, MUTED, true))
@@ -73,6 +74,8 @@ static func archive(h, v):
 			if int(Book.COPY.data.technologies[topic].era) == index: v.add_child(h.btn(topic, "read_entry", "tech/" + topic))
 
 static func forecast(h, v):
+	var future = Weather.outlook(h.sim.s)
+	v.add_child(U.label("未来农时　下季 " + future[0] + "　／　再下一季 " + future[1],15,U.GOLD,true))
 	var s = h.sim.s
 	var w = s.weather
 	var headline = U.box(false, 9);v.add_child(headline)

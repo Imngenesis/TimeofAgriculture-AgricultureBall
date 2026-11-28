@@ -5,6 +5,7 @@ const F = preload("res://frontier.gd")
 const Roads = preload("res://streets.gd")
 const Study = preload("res://agronomy.gd")
 const Weather = preload("res://weather.gd")
+const FieldEvents = preload("res://field_events.gd")
 const Guide = preload("res://chronicle.gd")
 const UNIVERSITY_NOTES = 8
 const Lesson = preload("res://field_lesson.gd")
@@ -95,6 +96,7 @@ func reset(difficulty: int = 1, region: int = 0):
 	F.setup(s, region, camp)
 	F.Crops.profiles(s)
 	Weather.setup(s)
+	FieldEvents.setup(s)
 	Guide.setup(s)
 	_extend_state()
 	Roads.rebuild(s)
@@ -105,7 +107,7 @@ func reset(difficulty: int = 1, region: int = 0):
 
 func book(opening: int, wood: int = 0, stone: int = 0) -> Dictionary:
 	return {"opening": opening, "gather": 0, "crop": 0, "refund": 0, "build": 0, "maintenance": 0, "advance": 0, "eat": 0, "loss": 0, "sow": 0, "spoil": 0, "science": 0, "ending": opening, 
-		"research": 0, "fodder": 0, "recruit": 0, "seed_gifts": 0, "debug_supply": 0, "operations": 0, "due": 0, "imports": 0, "exports": 0, "land": 0, "husbandry": 0, "livestock": 0, "explore": 0, "freight_in": 0, "freight_out": 0, "eggs": 0, "milk": 0, "dairy_loss": 0, "wood_open": wood, "stone_open": stone, "wood_in": 0, "stone_in": 0, "wood_out": 0, "stone_out": 0}
+		"research": 0, "field_cost": 0, "fodder": 0, "recruit": 0, "seed_gifts": 0, "debug_supply": 0, "operations": 0, "due": 0, "imports": 0, "exports": 0, "land": 0, "husbandry": 0, "livestock": 0, "explore": 0, "freight_in": 0, "freight_out": 0, "eggs": 0, "milk": 0, "dairy_loss": 0, "wood_open": wood, "stone_open": stone, "wood_in": 0, "stone_in": 0, "wood_out": 0, "stone_out": 0}
 
 func _extend_state():
 	s.merge({"happiness": 62, "organization": 65, "shortage": 0, "last_need": 0, "last_served": 0, "pop_change": 0, 
@@ -178,6 +180,9 @@ func restore(state: Dictionary):
 		F.migrate_residents(s)
 		s.ledger.seed_gifts = 0
 		s.version = 8
+	if not s.has("field_events"): FieldEvents.setup(s)
+	s.ledger.merge({"field_cost":0})
+	if not s.last_ledger.is_empty(): s.last_ledger.merge({"field_cost":0})
 	s.weather.erase("next")
 	Roads.rebuild(s)
 	events.clear()
@@ -756,7 +761,7 @@ func field_action(id: int, kind: String) -> String:
 	match kind:
 		"fertilized":
 			c.fertilized = true
-			s.water[V.reach(id)] = mini(100, s.water[V.reach(id)] + 8)
+			if not FieldEvents.this_turn(s,"E03",1): s.water[V.reach(id)] = mini(100,s.water[V.reach(id)] + 8)
 			queue_warning("runoff", id, "化肥增产首次用于这块农田")
 			next_warning()
 		"rotation": c.rotation = true;c.soil = mini(95, c.soil + 5)
@@ -894,6 +899,9 @@ func work():
 			c.wildwork += hands
 			while c.wildwork >= cost and bin[c.kind] < ceiling:
 				c.wildwork -= cost
+				if c.kind == "wood" and c.get("scorch_turn",-1) == s.turn and c.get("wood_withheld",-1) != s.turn:
+					c.wood_withheld = s.turn
+					continue
 				E.book_stock(s, V.sector(i), c.kind, 1)
 		elif c.kind == "wild":
 			if c.picked >= forage_limit(): continue
@@ -923,6 +931,8 @@ func work():
 				c.sown_variety = plan[1]
 				c.sown_line = F.Crops.known(s, plan[0], plan[1]).duplicate()
 				c.sown_pollution = c.pollution
+				c.erase("dispatches"); c.erase("heat_relief")
+				FieldEvents.mark_crop(s,i)
 				E.book_stock(s, zone, "seed", - seed_fee, "sow")
 				if s.flood_at >= 0 and s.turn > s.flood_at: s.resown = true
 				s.rev += 1
@@ -932,6 +942,10 @@ func work():
 				c.care = mini(100, c.care + care)
 		elif i == s.frontier.home and s.policy.get("flood", "") == "move" and s.flood_at < 0:
 			s.evacuated += hands
+	if FieldEvents.this_turn(s,"E01",1):
+		for id in farms():
+			var plot = s.cells[id]
+			if plot.crop and Town.working(plot): plot.care = mini(100,plot.care + 1)
 	if observing_school and observing_field and Study.Curriculum.terms(s.study) > s.research_record.terms:
 		s.research_record.observations = mini(Study.Curriculum.OBSERVATIONS, s.research_record.observations + 1)
 	for k in s.edges:
@@ -974,7 +988,7 @@ func finish_project(job: String) -> bool:
 	return true
 
 func tick():
-	if s.outcome != "" or s.pending != "": return
+	if s.outcome != "" or s.pending != "" or s.field_events.pending != "": return
 	s.time += 1
 	F.tick(self)
 	s.clock += 1
@@ -989,6 +1003,7 @@ func tick():
 	Lesson.update(self)
 	if s.clock >= SEASON_TIME: finish_season()
 	if s.outcome == "": detect_crop_risk()
+	FieldEvents.consider(self)
 	Guide.discover(s)
 
 func hit_flood():
@@ -1001,6 +1016,7 @@ func hit_flood():
 		if c.crop: drowned += 1
 		if c.kind in FACILITIES: c.condition = maxi(0, c.condition - 18)
 		c.flood = true
+		c.erase("dispatches"); c.erase("heat_relief")
 		c.crop = false
 		c.care = 0
 	var high_store = false
@@ -1035,7 +1051,7 @@ func expected_yield(id: int) -> int:
 	var gross = F.Crops.BASE[crop] + F.Crops.field_bonus(s, id) + E.ERA_YIELD[s.era] + care + floori(c.soil / 12.0) + 3 * (c.level - 1)
 	if "winnow" in s.tech and has_store and crop in ["稻", "粟", "麦", "玉米"]: gross += 2
 	if crop == "薯": gross += 2 if has_store and F.Crops.method(s, crop, 3) else -2
-	if crop == "稻" and F.Crops.method(s, crop, 3) and Town.covered(s, id, "canal"): gross += 3
+	if crop == "稻" and F.Crops.method(s, crop, 3) and Town.covered(s, id, "canal"): gross += 1 if FieldEvents.algae(s) else 3
 	if crop == "麦" and F.Crops.method(s, crop, 3) and has_store: gross += 4
 	if V.sector(id) == 3 and V.tier(id) == 0: gross += 5
 	gross += Weather.yield_delta(s, id, crop)
@@ -1054,7 +1070,8 @@ func expected_yield(id: int) -> int:
 	if has_blight(id):
 		pest_factor *= 0.9 if c.patrol >= s.turn else (0.7 if s.policy.get("blight", "") == "inspect" else 0.53)
 	var economy_factor = s.efficiency * E.DIFFICULTIES[s.difficulty].yield_pct / 10000.0
-	return maxi(1, roundi(gross * land_factor * pest_factor * economy_factor * (1.0 if c.condition >= Town.WORKING_CONDITION else 0.6)))
+	var normal = maxi(1,roundi(gross * land_factor * pest_factor * economy_factor * (1.0 if c.condition >= Town.WORKING_CONDITION else 0.6)))
+	return normal + FieldEvents.crop_bonus(s,id) + (2 if c.get("heat_relief",false) else 0)
 
 func has_blight(id: int) -> bool:
 	return s.sick and ( not s.cause.has("blight") or s.cause.blight.tile == id or Town.covered(s, id, "nursery"))
@@ -1062,7 +1079,7 @@ func has_blight(id: int) -> bool:
 func seed_saved(id: int, amount: int, room: int) -> int:
 	var next = F.Crops.for_sowing(s, id)
 	var reserved = F.Crops.seed_cost(s, next[0], next[1]) + int("seed_selection" in s.tech)
-	return mini(amount, mini(reserved, maxi(0, room)))
+	return mini(maxi(0,amount - FieldEvents.crop_bonus(s,id)),mini(reserved,maxi(0,room)))
 
 func forecast_harvest(zone: int) -> Dictionary:
 	var result = {"food": 0, "seed": 0}
@@ -1083,7 +1100,7 @@ func harvest():
 		var c = s.cells[i]
 		if not c.crop: continue
 		if not c.connected:
-			c.crop = false;c.care = 0;c.last = 0;s.rev += 1
+			c.crop = false; c.care = 0; c.last = 0; c.erase("dispatches"); c.erase("heat_relief"); s.rev += 1
 			note(V.address(i) + "与农专断路，本茬未能入仓。")
 			continue
 		var amount = expected_yield(i)
@@ -1094,11 +1111,13 @@ func harvest():
 		c.last = amount
 		c.harvests += 1
 		F.Crops.harvested(self, i)
+		if "E01" in c.get("dispatches",[]): c.soil = maxi(10,c.soil - 4)
 		c.care = 0
 		var zone = V.sector(i)
 		var crop = F.Crops.field_species(s, i)
 		if zone == 0 and Town.working(c): local_harvests += 1
 		var saved = seed_saved(i, amount, F.free_space(s, zone, "seed"))
+		c.erase("dispatches"); c.erase("heat_relief")
 		var byproduct = F.Crops.fodder(s, crop)
 		var forage_bin = s.frontier if zone == 0 else E.warehouse(s, zone)
 		var room = F.free_space(s, zone, "feed")
@@ -1129,7 +1148,7 @@ func water_step():
 	for i in farms():
 		var c = s.cells[i]
 		var runoff = 0
-		if c.fertilized:
+		if c.fertilized and not FieldEvents.this_turn(s,"E03",1):
 			runoff = (3 if c.precise else 7) + (3 if s.policy.get("runoff", "") == "intensive" else 0)
 			if c.precise and "variable_rate" in s.tech: runoff -= 2
 			if "slow_release" in s.tech: runoff -= 2
@@ -1168,6 +1187,7 @@ func seasonal_pressure():
 			disease -= 4
 		c.birds = clampi(c.birds + birds - (3 if s.policy.get("birds", "") == "watch" or c.patrol >= s.turn else 0), 0, 100)
 		c.weeds = clampi(c.weeds + weeds - (5 if s.policy.get("weeds", "") == "clear" or c.rotation else 0), 0, 100)
+		if c.crop and FieldEvents.this_turn(s,"E01",0): c.weeds = 0
 		c.disease = clampi(c.disease + disease - (5 if c.rotation or c.patrol >= s.turn else 0), 0, 100)
 
 func _population(served: int):
@@ -1264,6 +1284,7 @@ func finish_season():
 		note(s.end_reason)
 		return
 	Weather.next_season(self)
+	FieldEvents.next_weather(s)
 	if s.turn % 4 == 1:
 		var plots = farms()
 		var target = s.frontier.home if plots.is_empty() else plots[0]

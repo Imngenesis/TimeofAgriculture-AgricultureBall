@@ -5,6 +5,8 @@ const A = preload("res://frontier_ui.gd")
 const R = preload("res://agronomy.gd")
 const C = preload("res://crop_book.gd")
 const CUR = preload("res://curriculum.gd")
+const H = preload("res://handbook_style.gd")
+const READ = preload("res://content/research_readings.json")
 const MapView = preload("res://research_map.gd")
 const TOOLS = preload("res://art/heritage-implements.png")
 
@@ -23,18 +25,24 @@ static func draw_detail(h, pane, key: String, requirements: Array):
 	elif crop == "" and key not in ["seed", "dry"]:
 		plate = TOOLS
 		tile = {"经济": 4, "防灾": 2, "耕作": 0}.get(R.discipline(key), 5)
-	var thumb = A.picture(plate, tile, Vector2(66, 68))
+	var thumb = A.picture(plate,tile,Vector2(80,72))
+	if t[1] == 3 and crop == "":
+		var season_art = preload("res://season_ui.gd")
+		thumb.texture = season_art.art({"plate":"era","index":3})
 	thumb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	lead.add_child(thumb)
 	var heading = U.box(true, 3)
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL;lead.add_child(heading)
-	heading.add_child(U.label(m.ROMAN[t[1]] + " · " + m.ERAS[t[1]], 13, U.GOLD, true))
-	var title = h.title_label(m.tech_name(key), 23)
+	heading.add_child(U.label(m.ROMAN[t[1]] + " · " + m.ERAS[t[1]], 13, H.OCHRE, true))
+	var title = h.title_label(m.tech_name(key),25,H.INK)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	heading.add_child(title)
 	var state = MapView.state_label(m, key)
-	heading.add_child(U.label(state[0] + "  ·  " + MapView.lane_for(key), 13, state[1], true))
+	heading.add_child(H.stamp(state[0] + "  ·  " + MapView.lane_for(key),Color("#d8d9bc"),H.INK))
 	pane.add_child(U.rule())
+	pane.add_child(U.label("效果与说明", 15, H.OCHRE))
+	pane.add_child(U.label(R.description(s, key, m.techs), 15, H.INK, true))
+
 
 	var fee = R.notes(s, key, t)
 	var inputs = ["%d 札记" % fee, "%d 人秒" % R.research_time(s, key, t)]
@@ -42,46 +50,54 @@ static func draw_detail(h, pane, key: String, requirements: Array):
 	var cost = R.bill(s, key, t)
 	for i in 4:
 		if cost[i] > 0: inputs.append("%d %s" % [cost[i], ["口粮", "种粮", "木", "石"][i]])
-	pane.add_child(U.label("研习投入", 15, U.GOLD))
-	pane.add_child(U.label(" · ".join(inputs), 14, U.TEXT, true))
+	pane.add_child(U.label("研习投入", 15, H.OCHRE))
+	pane.add_child(U.label(" · ".join(inputs), 14, H.INK, true))
 	var terms = CUR.terms(key)
 	if terms > 0:
-		pane.add_child(U.label("田间验证 %d 季。每个有效季内，农专教师和通路农田的农户需同时到岗至少 %d 秒。" % [terms, CUR.OBSERVATIONS], 14, U.DIM, true))
+		pane.add_child(U.label("田间验证 %d 季。每个有效季内，农专教师和通路农田的农户需同时到岗至少 %d 秒。" % [terms, CUR.OBSERVATIONS], 14, H.MUTED, true))
 	if key == "rice_2":
-		pane.add_child(U.label("实作须有一块通路农田，且农户已经到岗。", 14, U.DIM, true))
+		pane.add_child(U.label("实作须有一块通路农田，且农户已经到岗。", 14, H.MUTED, true))
 	if key == "rice_3":
-		pane.add_child(U.label("增产在接通农专且受有效灌渠覆盖的稻田生效。", 14, U.DIM, true))
+		pane.add_child(U.label("增产在接通农专且受有效灌渠覆盖的稻田生效。", 14, H.MUTED, true))
 
 	for group in R.prerequisites(m.techs, key):
 		var met = R.group_met(group, s.tech)
-		pane.add_child(U.label(("前置 · 任选一项" if group.mode == "any" else "前置 · 全部掌握") + ("　✓" if met else ""), 14, MapView.ALTERNATIVE if group.mode == "any" else U.GOLD))
+		pane.add_child(U.label(("前置 · 任选一项" if group.mode == "any" else "前置 · 全部掌握") + ("　✓" if met else ""), 14, H.JADE if group.mode == "any" else H.OCHRE))
 		topic_links(h, pane, group.keys, true)
 
 	var aids = R.aids(key)
 	if not aids.is_empty():
-		pane.add_child(U.label("辅助科技 · 可选", 14, MapView.SUPPORT))
+		pane.add_child(U.label("辅助科技 · 可选", 14, H.JADE))
 		topic_links(h, pane, aids, true)
 		if key != s.study and key not in s.tech:
 			var discount_status = "已计入上方报价。" if R.assisted(s, key) else "掌握其中任一项即可享受。"
-			pane.add_child(U.label("札记、物资和工时各减 %d%%。折后下取整，非零投入至少为 1。%s" % [R.ASSIST_PERCENT, discount_status], 13, U.DIM, true))
+			pane.add_child(U.label("札记、物资和工时各减 %d%%。折后下取整，非零投入至少为 1。%s" % [R.ASSIST_PERCENT, discount_status], 13, H.MUTED, true))
 	if key == s.study and terms > 0:
 		pane.add_child(h.btn("撤回验证项目…", "withdraw_study", key))
 	elif key not in s.tech and key != s.study:
 		if s.study != "":
-			pane.add_child(U.label("正在研习" + m.tech_name(s.study), 14, U.WARN, true))
+			pane.add_child(U.label("正在研习" + m.tech_name(s.study), 14, H.OCHRE, true))
 		for requirement in requirements:
 			var gate: String = requirement[1]
 			if not requirement[0] and not gate.begins_with("须先掌握") and not gate.begins_with("任选一项前置"):
-				pane.add_child(U.label(gate, 14, U.WARN, true))
+				pane.add_child(U.label(gate, 14, H.OCHRE, true))
 	pane.add_child(U.rule())
-	pane.add_child(U.label("效果与说明", 15, U.GOLD))
-	pane.add_child(U.label(R.description(s, key, m.techs), 15, U.TEXT, true))
-	var topic = preload("res://chronicle.gd").research_source(s, key)
-	if topic != "": pane.add_child(h.btn("阅读农技文献", "read_entry", "tech/" + topic))
+	var articles = READ.data.topics.get(key,[])
+	if key == "seed":
+		var starter = C.START[s.frontier.region]
+		articles = ["seed" if starter == "稻" else "seed-" + C.CODES[starter]]
+	if not articles.is_empty():
+		pane.add_child(U.label("课题原文",15,H.OCHRE))
+		for article in articles:
+			var entry = READ.data.entries[article]
+			pane.add_child(h.btn("《" + entry.title + "》","read_entry","paper/" + article + "/" + str(t[1])))
+	else:
+		var old_topic = preload("res://chronicle.gd").research_source(s,key)
+		if old_topic != "": pane.add_child(h.btn("阅读农技文献","read_entry","tech/" + old_topic))
 	var next = MapView.children(m, key)
 	if not next.is_empty():
 		pane.add_child(U.rule())
-		pane.add_child(U.label("衍生课题", 14, U.GOLD))
+		pane.add_child(U.label("衍生课题", 14, H.OCHRE))
 		topic_links(h, pane, next, false)
 
 static func topic_links(h, pane, keys: Array, show_status: bool):

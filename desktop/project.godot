@@ -12,7 +12,7 @@ config_version=5
 
 config/name="百谷长青"
 config/description="在六种生态中探索种源、经营拓殖地，从采集走向现代农业。"
-config/version="1.20.1"
+config/version="1.20.2"
 run/main_scene="res://main.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="RiceByTheRiver"

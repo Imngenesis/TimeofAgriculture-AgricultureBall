@@ -8,6 +8,7 @@ const Weather = preload("res://weather.gd")
 static func spring_water(s: Dictionary) -> Dictionary:
  var f = s.frontier
  var intake = RAIN[s.turn % 4] + (9 if "coastal_cistern" in s.tech else 6) * f.wells + Weather.water_delta(s)
+ if f.region == 4 and preload("res://field_events.gd").algae(s): intake = maxi(0,intake - 2)
  var need = ceili(s.pop * 0.75)
  var plots = 0
  for c in s.cells:

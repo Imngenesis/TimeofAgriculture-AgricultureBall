@@ -41,20 +41,33 @@ static func setup(s: Dictionary):
 	s.weather = {"rng": maxi(1, int(s.frontier.rng) % 2147483647), "now": "晴", "threat": "", "prepared": false, "last_hit": -4, "history": []}
 	if s.turn > 0: s.weather.now = draw(s, s.turn)
 
-static func next_season(m):
-	var s = m.s
+static func roll_season(s: Dictionary):
 	var w = s.weather
-	var previous = w.now
-	w.now = draw(s, s.turn)
+	w.now = draw(s,s.turn)
 	w.threat = ""
 	w.prepared = false
 	if not THREATS.has(w.now): return
-	if s.turn >= 4 and s.turn - w.last_hit >= [6, 4, 3][s.difficulty]:
-		if roll(s, 100) < DISASTER_CHANCES[s.difficulty]:
-			announce_disaster(m, w.now)
-			return
-	if w.now != previous:
-		m.queue_incident("气候变化 · " + w.now, "本季出现%s。%s" % [w.now, FORECAST[w.now]], "climate")
+	if s.turn >= 4 and s.turn - w.last_hit >= [6,4,3][s.difficulty]:
+		if roll(s,100) < DISASTER_CHANCES[s.difficulty]: w.threat = THREATS[w.now]
+
+static func outlook(s: Dictionary) -> Array:
+	var cursor = {"turn":s.turn,"difficulty":s.difficulty,"frontier":s.frontier,"weather":s.weather.duplicate()}
+	var predictions = []
+	for i in 2:
+		if cursor.weather.threat != "": cursor.weather.last_hit = cursor.turn
+		cursor.turn += 1
+		roll_season(cursor)
+		predictions.append(cursor.weather.now)
+	return predictions
+
+static func next_season(m):
+	var s = m.s
+	var previous = s.weather.now
+	roll_season(s)
+	var w = s.weather
+	if w.threat != "": announce_disaster(m,w.now)
+	elif THREATS.has(w.now) and w.now != previous:
+		m.queue_incident("气候变化 · " + w.now, "本季出现%s。%s" % [w.now,FORECAST[w.now]], "climate")
 
 static func announce_disaster(m, weather: String):
 	var w = m.s.weather
@@ -102,6 +115,8 @@ static func settle(m):
 	var w = s.weather
 	if w.now == "小雨":
 		for plot in m.farms(): s.cells[plot].soil = mini(96, s.cells[plot].soil + 1)
+	if w.now == "暑热" and w.threat != "旱灾" and s.field_events.dry_turn == s.turn:
+		for id in m.farms(): s.cells[id].soil = maxi(10,s.cells[id].soil + mini(0,m.FieldEvents.upland_weather(s,id)))
 	if w.threat == "": return
 	var strength = (2 + s.difficulty) if w.prepared else (6 + 2 * s.difficulty)
 	if w.prepared:
@@ -116,7 +131,7 @@ static func settle(m):
 		match w.threat:
 			"旱灾":
 				if c.kind != "farm" or Town.covered(s, id, "canal"): continue
-				c.soil = maxi(10, c.soil - strength)
+				c.soil = maxi(10,c.soil - maxi(0,strength - m.FieldEvents.upland_weather(s,id)))
 			"暴雨冲刷":
 				if c.kind != "farm" or V.tier(id) < 1 or c.terrace or c.rotation: continue
 				c.soil = maxi(10, c.soil - maxi(0, strength - (3 if "slope_cover" in s.tech else 0)))

@@ -120,7 +120,7 @@ func menu(has_save: bool):
 	var settings = btn("游戏设置", "settings");settings.custom_minimum_size = Vector2(209, 38);controls.add_child(settings)
 	if not OS.has_feature("web"):
 		var leave = btn("退出游戏", "quit");leave.custom_minimum_size = Vector2(209, 38);controls.add_child(leave)
-	var signature = U.label("百谷长青  ·  V1.20.1", 13, U.DIM)
+	var signature = U.label("百谷长青  ·  V%s" % ProjectSettings.get_setting("application/config/version"), 13, U.DIM)
 	stage.add_child(signature);U.rect(signature, 0, 1, 0, 1, Rect2i(80, -53, 412, -30))
 	var river = U.box(false, 7)
 	stage.add_child(river);U.rect(river, 1, 1, 1, 1, Rect2i(-190, -56, -30, -28))
@@ -624,11 +624,16 @@ func make_drawer():
 			var advance = btn("合建中国农业大学" if s.era == 3 else "筹备进入" + S.ERAS[s.era + 1], "review_era", null, why == "")
 			advance.disabled = why != "";advance.tooltip_text = why;frame.add_child(advance)
 		"log":
+			var stories = sim.s.field_events.records.keys(); stories.reverse()
+			for key in stories:
+				var entry = sim.s.field_events.records[key]; var info = S.FieldEvents.COPY.data[key]
+				content.add_child(btn("回顾 · %s　／　%s" % [info.title,info.choices[entry.choice].name],"field_record",key))
 			content.add_child(btn("翻阅农耕文化志", "panel", "archive", true))
 			content.add_child(U.label(sim.s.last_report if sim.s.last_report != "" else "第一季尚未结算。", 15, U.GOLD, true))
 			if not sim.s.last_ledger.is_empty():
 				var previous = sim.s.last_ledger
 				content.add_child(U.label("工程与农事 %d　·　检修与防御 %d　·　晋阶 %d　·　撤工退粮 %d\n播种 %d　·　灾损 %d　·　溢仓 %d　·　农专编成 %d 点" % [previous.build, previous.maintenance, previous.advance, previous.refund, previous.sow, previous.loss, previous.spoil, previous.science], 14, U.DIM, true))
+				if previous.get("field_cost",0) > 0: content.add_child(U.label("农事议决支用粮种　%d 份" % previous.field_cost,14,U.GOLD))
 				if previous.has("ending"): content.add_child(U.label("粮种合计　期初 %d → 期末 %d" % [previous.opening, previous.ending], 14, U.GOLD))
 			for item in sim.s.log: content.add_child(U.label(item, 14, U.TEXT, true))
 
@@ -640,9 +645,13 @@ func dialog(kind: String):
 	clear_detail(modal);modal = null
 	if kind == "": return
 	modal = ColorRect.new()
+	modal.z_index = 50
 	modal.color = Color(0.035, 0.065, 0.047, 0.55)
 	stage.add_child(modal);modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	modal.mouse_filter = Control.MOUSE_FILTER_STOP
+	if kind == "field_record" or (kind == "incident" and sim.s.incidents.front().kind == "field_event"):
+		preload("res://field_event_ui.gd").show(self,modal,reading_key if kind == "field_record" else sim.s.field_events.pending,kind == "field_record")
+		return
 	if kind == "study_focus":
 		Research.focus_sheet(self, modal)
 		return
