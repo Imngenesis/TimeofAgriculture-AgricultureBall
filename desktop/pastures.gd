@@ -98,7 +98,7 @@ static func action(s: Dictionary, cmd: String, arg):
  if cmd == "manure":
   var source = manure_source(s, arg)
   s.frontier.yards[source].manure -= 1
-  s.cells[arg].soil = mini(96, s.cells[arg].soil + (14 if "straw_return" in s.tech else 10))
+  s.cells[arg].soil = mini(96, s.cells[arg].soil + (14 if "manure_cycle" in s.tech else 10))
   s.cells[arg].compost = s.turn
   return
  var id = int(arg[0])
